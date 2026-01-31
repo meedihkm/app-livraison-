@@ -32,17 +32,20 @@ jobs:
     - name: Get dependencies
       run: flutter pub get
 
-    - name: Build APK
-      run: flutter build apk --release
+    - name: Build APK Release
+      run: flutter build apk --release --verbose
 
-    - name: Upload APK
+    - name: List build outputs
+      run: ls -la build/app/outputs/flutter-apk/
+
+    - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: app-release
-        path: mobile/build/app/outputs/flutter-apk/app-release.apk
+        name: app-release-apk
+        path: mobile/build/app/outputs/flutter-apk/*.apk
 
     - name: Create Release
-      if: github.ref == 'refs/heads/main'
+      if: github.ref == 'refs/heads/main' && success()
       uses: ncipollo/release-action@v1
       with:
         artifacts: "mobile/build/app/outputs/flutter-apk/app-release.apk"
