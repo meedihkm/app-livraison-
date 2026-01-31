@@ -7,8 +7,8 @@ WORKDIR /app
 # Copier les fichiers de dépendances
 COPY package*.json ./
 
-# Installer les dépendances
-RUN npm ci --only=production
+# Installer les dépendances (npm install car pas de package-lock.json)
+RUN npm install --omit=dev
 
 # Copier le reste du code
 COPY . .
