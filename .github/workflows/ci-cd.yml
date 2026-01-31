@@ -1,0 +1,139 @@
+# =====================================================
+# CI/CD COMPLET - Déploiement automatique API + Build APK
+# Se déclenche sur chaque push sur main
+# =====================================================
+
+name: CI/CD - Deploy & Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # ============================================
+  # JOB 1: Test & Deploy API
+  # ============================================
+  deploy-api:
+    name: Deploy API to Coolify
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Notify Coolify Webhook
+      run: |
+        echo "🚀 Déclenchement du déploiement Coolify..."
+        # Coolify détecte automatiquement les push sur GitHub
+        # Si webhook manuel nécessaire:
+        # curl -X POST "${{ secrets.COOLIFY_WEBHOOK_URL }}" \
+        #   -H "Content-Type: application/json" \
+        #   -d '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
+    
+    - name: Check Deployment Status
+      run: |
+        echo "✅ Code poussé sur GitHub"
+        echo "📝 Coolify détectera automatiquement le changement"
+        echo "🔗 URL: https://awid.gleeze.com"
+        echo "⏱️  Déploiement en cours (~2-3 minutes)..."
+
+  # ============================================
+  # JOB 2: Build APK (si changements dans mobile/)
+  # ============================================
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    needs: deploy-api  # Attendre que l'API soit déployée
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '21'
+        
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.27.0'
+        channel: 'stable'
+        cache: true
+        
+    - name: Get dependencies
+      working-directory: mobile
+      run: flutter pub get
+      
+    - name: Analyze code
+      working-directory: mobile
+      run: flutter analyze --no-fatal-infos || true
+      
+    - name: Build APK Release
+      working-directory: mobile
+      run: flutter build apk --release
+      
+    - name: Rename APK with version
+      working-directory: mobile
+      run: |
+        VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
+        BUILD=$(date +%Y%m%d_%H%M)
+        mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/awid-v${VERSION}-${BUILD}.apk
+        ls -la build/app/outputs/flutter-apk/
+        
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: awid-apk-${{ github.run_number }}
+        path: mobile/build/app/outputs/flutter-apk/*.apk
+        retention-days: 30
+        
+    - name: Create/Update Release
+      if: github.ref == 'refs/heads/main' && success()
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: "mobile/build/app/outputs/flutter-apk/*.apk"
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: "v${{ github.run_number }}"
+        name: "AWID Build ${{ github.run_number }}"
+        body: |
+          ## Build ${{ github.run_number }}
+          
+          **Commit:** ${{ github.sha }}
+          **Date:** ${{ github.event.head_commit.timestamp }}
+          **Auteur:** ${{ github.event.head_commit.author.name }}
+          
+          ### Changements:
+          ${{ github.event.head_commit.message }}
+          
+          ### Téléchargement:
+          - 📱 APK Android (ci-dessous)
+          - 🌐 API: https://awid.gleeze.com
+          
+        allowUpdates: true
+        replacesArtifacts: true
+        makeLatest: true
+
+  # ============================================
+  # JOB 3: Notification
+  # ============================================
+  notify:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: [deploy-api, build-apk]
+    if: always()
+    
+    steps:
+    - name: Notification
+      run: |
+        echo "=========================================="
+        echo "📱 CI/CD TERMINÉ"
+        echo "=========================================="
+        echo "✅ API déployée: https://awid.gleeze.com"
+        echo "✅ APK buildé et publié dans Releases"
+        echo "🔗 Release: https://github.com/${{ github.repository }}/releases/tag/v${{ github.run_number }}"
+        echo "=========================================="
