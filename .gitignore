@@ -1,36 +1,155 @@
-# Dependencies
-node_modules/
+# Logs
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
-package-lock.json
-yarn.lock
+yarn-error.log*
+lerna-debug.log*
 
-# Environment variables
+# Diagnostic reports
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
+.nyc_output
+
+# Grunt intermediate storage
+.grunt
+
+# Bower dependency directory
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons
+build/Release
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# TypeScript v1 declaration files
+typings/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
 .env
+.env.test
 .env.local
-.env.*.local
+.env.production
 
-# Logs
-logs/
-*.log
+# parcel-bundler cache
+.cache
+.parcel-cache
 
-# Uploads
-uploads/*
-!uploads/.gitkeep
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+public
+
+# Vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# Build directories
+build/
+dist/
 
 # IDE
-.vscode/
 .idea/
+.vscode/
 *.swp
+*.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Cache
-.cache/
-.parcel-cache/
+# Temporary files
+tmp/
+temp/
+*.tmp
 
-# Build
-dist/
-build/
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Backup files
+*.bak
+*.backup
+
+# Mobile ( Flutter )
+mobile/
+mobile-v4/
+
+# Backend legacy
+backend-v4/
+
+# api-v2 est maintenant dans le repo
+# api-v2/
+
+# Logs
+logs/
+*.log
+
+# Test files
+test/
+tests/
+*.test.js
+*.spec.js
+
+# Documentation temporaire
+*.md.bak
