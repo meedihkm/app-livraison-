@@ -9,6 +9,8 @@ import '../../../auth/providers/auth_provider.dart';
 import 'deliverers_map_page.dart';
 import 'deliveries_page.dart';
 import 'financial_page.dart';
+import '../../../finance/presentation/pages/finance_dashboard_page.dart';
+import '../../../finance/presentation/pages/statistics_page.dart';
 import 'orders_page.dart';
 import 'products_page.dart';
 import 'settings_page.dart';
@@ -34,7 +36,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       ProductsPage(),
       UsersPage(),
       DeliveriesPage(),
-      FinancialPage(),
+      FinanceDashboardPage(),
     ];
   }
 
