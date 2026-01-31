@@ -132,7 +132,7 @@ temp/
 *.backup
 
 # Mobile ( Flutter )
-mobile/
+# mobile/  # Enabled for deployment
 mobile-v4/
 
 # Backend legacy

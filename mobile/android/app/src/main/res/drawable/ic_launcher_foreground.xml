@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Background circle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0"/>
+    <!-- Truck body -->
+    <path
+        android:fillColor="#2196F3"
+        android:pathData="M28,42 L28,62 L70,62 L70,50 L60,50 L60,42 Z"/>
+    <!-- Truck cabin -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M70,50 L70,62 L82,62 L82,54 L76,50 Z"/>
+    <!-- Window -->
+    <path
+        android:fillColor="#BBDEFB"
+        android:pathData="M72,52 L72,58 L78,58 L78,54 Z"/>
+    <!-- Wheels -->
+    <path
+        android:fillColor="#424242"
+        android:pathData="M38,62 m-6,0 a6,6 0,1 1,12 0 a6,6 0,1 1,-12 0"/>
+    <path
+        android:fillColor="#424242"
+        android:pathData="M72,62 m-6,0 a6,6 0,1 1,12 0 a6,6 0,1 1,-12 0"/>
+    <!-- Wheel centers -->
+    <path
+        android:fillColor="#757575"
+        android:pathData="M38,62 m-2,0 a2,2 0,1 1,4 0 a2,2 0,1 1,-4 0"/>
+    <path
+        android:fillColor="#757575"
+        android:pathData="M72,62 m-2,0 a2,2 0,1 1,4 0 a2,2 0,1 1,-4 0"/>
+    <!-- Package on truck -->
+    <path
+        android:fillColor="#FF9800"
+        android:pathData="M40,46 L40,56 L52,56 L52,46 Z"/>
+    <path
+        android:fillColor="#F57C00"
+        android:pathData="M44,46 L44,56 M40,51 L52,51"/>
+</vector>

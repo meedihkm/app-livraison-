@@ -1,0 +1,75 @@
+name: awid
+description: Awid - Application de gestion de commandes et livraisons B2B pour la Kabylie
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # State management
+  provider: ^6.1.5
+  
+  # HTTP requests
+  http: ^1.4.0
+  
+  # Secure storage
+  flutter_secure_storage: ^9.2.4
+  
+  # UI
+  cupertino_icons: ^1.0.8
+  
+  # Image picker & compression
+  image_picker: ^1.1.2
+  image: ^4.5.3
+  
+  # Phone calls
+  url_launcher: ^6.3.1
+  
+  # Charts
+  fl_chart: ^0.70.2
+  
+  # GPS & Maps
+  geolocator: ^13.0.2
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  
+  # PDF & Printing
+  pdf: ^3.11.1
+  printing: ^5.13.3
+  
+  # Calendar
+  table_calendar: ^3.1.2
+  
+  # Local storage for cache
+  shared_preferences: ^2.4.0
+  
+  # Cached images
+  cached_network_image: ^3.4.1
+
+  # Monitoring Sentry
+  sentry_flutter: ^8.13.0
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  connectivity_plus: ^6.1.5
+  internet_connection_checker: ^3.0.1
+  onesignal_flutter: ^5.3.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  
+  # Testing
+  mockito: ^5.4.5
+  build_runner: ^2.4.15
+  golden_toolkit: ^0.15.0
+  mocktail: ^1.0.4
+
+flutter:
+  uses-material-design: true
