@@ -3,7 +3,7 @@ const rateLimit = require('express-rate-limit');
 // Rate limiter global
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  max: 500, // Augmenté pour l'app mobile (100 était trop restrictif)
   message: { error: 'Trop de requÃªtes, rÃ©essayez plus tard' },
   standardHeaders: true,
   legacyHeaders: false,
