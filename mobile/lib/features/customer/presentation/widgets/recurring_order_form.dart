@@ -89,7 +89,7 @@ class _RecurringOrderFormState extends State<RecurringOrderForm> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButtonFormField<String>(
-                    initialValue: selectedProductId,
+                    value: selectedProductId,
                     decoration: InputDecoration(
                       labelText: 'Produit',
                       border: OutlineInputBorder(),
@@ -276,7 +276,7 @@ class _RecurringOrderFormState extends State<RecurringOrderForm> {
                         Text('Jour du mois', style: TextStyle(fontWeight: FontWeight.bold)),
                         SizedBox(height: 8),
                         DropdownButtonFormField<int>(
-                          initialValue: _dayOfMonth,
+                          value: _dayOfMonth,
                           decoration: InputDecoration(border: OutlineInputBorder()),
                           items: List.generate(31, (i) => DropdownMenuItem(
                             value: i + 1,

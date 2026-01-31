@@ -209,7 +209,7 @@ class _RecurringOrdersPageState extends State<RecurringOrdersPage> {
                 Switch(
                   value: order.active,
                   onChanged: (_) => _toggleOrder(order),
-                  activeThumbColor: Colors.deepPurple,
+                  activeColor: Colors.deepPurple,
                 ),
               ],
             ),
