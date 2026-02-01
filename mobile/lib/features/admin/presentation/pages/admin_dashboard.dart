@@ -8,9 +8,9 @@ import '../../../../core/services/financial_service.dart';
 import '../../../auth/providers/auth_provider.dart';
 import 'deliverers_map_page.dart';
 import 'deliveries_page.dart';
-import 'financial_page.dart';
+
 import '../../../finance/presentation/pages/finance_dashboard_page.dart';
-import '../../../finance/presentation/pages/statistics_page.dart';
+
 import 'orders_page.dart';
 import 'products_page.dart';
 import 'settings_page.dart';
@@ -170,8 +170,8 @@ class _DashboardHomePageState extends State<_DashboardHomePage> {
       final debtsRes = await _financialService.getDebts();
 
       if (mounted) {
-        _allOrders = ordersRes['data'] ?? [];
-        _debts = debtsRes['data'] ?? [];
+        _allOrders = (ordersRes['data'] as List<dynamic>?) ?? [];
+        _debts = (debtsRes['data'] as List<dynamic>?) ?? [];
         _calculateStats();
         setState(() => _isLoading = false);
       }
@@ -219,7 +219,7 @@ class _DashboardHomePageState extends State<_DashboardHomePage> {
 
   List<dynamic> _filterOrdersByDate(List<dynamic> orders, DateTime start, DateTime end) {
     return orders.where((o) {
-      final date = DateTime.tryParse(o['createdAt'] ?? '');
+      final date = DateTime.tryParse((o['createdAt'] ?? '').toString());
       if (date == null) return false;
       final orderDay = DateTime(date.year, date.month, date.day);
       return !orderDay.isBefore(start) && !orderDay.isAfter(end);
@@ -444,7 +444,7 @@ class _DashboardHomePageState extends State<_DashboardHomePage> {
                   if (index >= 0 && index < _weeklyData.length) {
                     return Padding(
                       padding: EdgeInsets.only(top: 8),
-                      child: Text(_weeklyData[index]['day'], style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+                      child: Text(_weeklyData[index]['day'].toString(), style: TextStyle(color: Colors.grey[600], fontSize: 11)),
                     );
                   }
                   return Text('');
@@ -466,7 +466,7 @@ class _DashboardHomePageState extends State<_DashboardHomePage> {
               x: index,
               barRods: [
                 BarChartRodData(
-                  toY: data['ca'],
+                  toY: (data['ca'] as num).toDouble(),
                   color: isToday ? Colors.blue : Colors.blue.withValues(alpha: 0.5),
                   width: 28,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
@@ -568,7 +568,7 @@ class _DashboardHomePageState extends State<_DashboardHomePage> {
                   backgroundColor: Colors.orange.shade100,
                   child: Icon(Icons.shopping_bag, color: Colors.orange),
                 ),
-                title: Text(order['customer']?['name'] ?? 'Client', style: TextStyle(fontWeight: FontWeight.w600)),
+                title: Text(order['customer']?['name']?.toString() ?? 'Client', style: TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: Text('${(order['items'] as List?)?.length ?? 0} articles'),
                 trailing: Text('${_parseDouble(order['total']).toStringAsFixed(0)} DA',
                     style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
@@ -628,11 +628,11 @@ class _DashboardHomePageState extends State<_DashboardHomePage> {
                     CircleAvatar(
                       backgroundColor: Colors.white.withValues(alpha: 0.3),
                       radius: 16,
-                      child: Text((d['name'] ?? 'C')[0],
+                      child: Text((d['name']?.toString() ?? 'C')[0],
                           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                     SizedBox(width: 10),
-                    Expanded(child: Text(d['name'] ?? 'Client', style: TextStyle(color: Colors.white))),
+                    Expanded(child: Text(d['name']?.toString() ?? 'Client', style: TextStyle(color: Colors.white))),
                     Text('${_parseDouble(d['total_debt']).toStringAsFixed(0)} DA',
                         style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ],

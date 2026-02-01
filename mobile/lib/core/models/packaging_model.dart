@@ -14,12 +14,12 @@ class PackagingType {
   });
 
   factory PackagingType.fromJson(Map<String, dynamic> json) => PackagingType(
-        id: json['id'],
-        organizationId: json['organizationId'],
-        name: json['name'] ?? '',
-        description: json['description'],
+        id: json['id']?.toString() ?? '',
+        organizationId: json['organizationId']?.toString(),
+        name: json['name']?.toString() ?? '',
+        description: json['description']?.toString(),
         depositValue: (json['depositValue'] as num?)?.toDouble() ?? 0,
-        active: json['active'] ?? true,
+        active: json['active'] != false,
         createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,
       );
   final String id;

@@ -40,18 +40,22 @@ class Delivery {
       id: json['id']?.toString() ?? '',
       orderId: json['orderId']?.toString() ?? '',
       delivererId: json['delivererId']?.toString(),
-      status: json['status'] ?? 'assigned',
-      paymentStatus: json['paymentStatus'] ?? 'unpaid',
+      status: json['status']?.toString() ?? 'assigned',
+      paymentStatus: json['paymentStatus']?.toString() ?? 'unpaid',
       amountCollected: parseDouble(json['amountCollected']),
-      comment: json['comment'],
-      failureReason: json['failureReason'],
+      comment: json['comment']?.toString(),
+      failureReason: json['failureReason']?.toString(),
       deliveredAt: json['deliveredAt'] != null ? DateTime.tryParse(json['deliveredAt'].toString()) : null,
       failedAt: json['failedAt'] != null ? DateTime.tryParse(json['failedAt'].toString()) : null,
       postponedTo: json['postponedTo'] != null ? DateTime.tryParse(json['postponedTo'].toString()) : null,
       attempts: parseInt(json['attempts']),
       createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,
-      order: Order.fromJson(json['order'] ?? {}),
-      deliverer: json['deliverer'] != null ? Deliverer.fromJson(json['deliverer']) : null,
+      order: json['order'] is Map<String, dynamic> 
+          ? Order.fromJson(json['order'] as Map<String, dynamic>)
+          : Order.empty(),
+      deliverer: json['deliverer'] is Map<String, dynamic> 
+          ? Deliverer.fromJson(json['deliverer'] as Map<String, dynamic>) 
+          : null,
     );
   }
   final String id;
@@ -121,8 +125,8 @@ class Deliverer {
   factory Deliverer.fromJson(Map<String, dynamic> json) {
     return Deliverer(
       id: json['id']?.toString() ?? '',
-      name: json['name'] ?? '',
-      phone: json['phone'],
+      name: json['name']?.toString() ?? '',
+      phone: json['phone']?.toString(),
     );
   }
   final String id;

@@ -125,9 +125,9 @@ class _DeliveryRoutePageState extends State<DeliveryRoutePage> {
   Future<void> _loadDeliveries() async {
     try {
       final response = await _apiService.getDeliveryRoute();
-      if (response['success']) {
+      if (response['success'] == true) {
         setState(() {
-          _deliveries = (response['data'] as List).map((json) => Delivery.fromJson(json)).toList();
+          _deliveries = (response['data'] as List<dynamic>).map((json) => Delivery.fromJson(json as Map<String, dynamic>)).toList();
           _isLoading = false;
         });
       }
@@ -570,9 +570,9 @@ class _DeliveryRoutePageState extends State<DeliveryRoutePage> {
       if (address != null && address.isNotEmpty) {
         try {
           final response = await _apiService.updateUserAddress(cafeteria.id, address);
-          if (response['success'] && response['data'] != null) {
-            final lat = response['data']['latitude'];
-            final lng = response['data']['longitude'];
+          if (response['success'] == true && response['data'] != null) {
+            final lat = (response['data'] as Map<String, dynamic>)['latitude'] as double?;
+            final lng = (response['data'] as Map<String, dynamic>)['longitude'] as double?;
             if (lat != null && lng != null) {
               _openNavigation(lat, lng, cafeteria.name);
               _loadDeliveries(); // Recharger pour avoir les nouvelles coordonnées
@@ -1031,18 +1031,18 @@ class _FailureReportSheetState extends State<_FailureReportSheet> {
               spacing: 8,
               runSpacing: 8,
               children: _reasons.map((r) => GestureDetector(
-                onTap: () => setState(() => _failureReason = r['value']),
+                onTap: () => setState(() => _failureReason = r['value'] as String),
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: _failureReason == r['value'] ? Colors.red.withValues(alpha: 0.1) : Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: _failureReason == r['value'] as String ? Colors.red.withValues(alpha: 0.1) : Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _failureReason == r['value'] ? Colors.red : Colors.transparent),
+                    border: Border.all(color: _failureReason == r['value'] as String ? Colors.red : Colors.transparent),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(r['icon'], size: 18, color: _failureReason == r['value'] ? Colors.red : Colors.grey),
+                    Icon(r['icon'] as IconData?, size: 18, color: _failureReason == r['value'] as String ? Colors.red : Colors.grey),
                     SizedBox(width: 6),
-                    Text(r['label'], style: TextStyle(fontSize: 13, color: _failureReason == r['value'] ? Colors.red : Colors.grey[700])),
+                    Text(r['label'] as String, style: TextStyle(fontSize: 13, color: _failureReason == r['value'] as String ? Colors.red : Colors.grey[700])),
                   ]),
                 ),
               )).toList(),

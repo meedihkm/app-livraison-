@@ -47,19 +47,32 @@ class Order {
       id: json['id']?.toString() ?? '',
       organizationId: json['organizationId']?.toString() ?? '',
       customerId: json['customerId']?.toString() ?? '',
-      date: json['date'] ?? '',
+      date: json['date']?.toString() ?? '',
       total: parseDouble(json['total']),
-      status: json['status'] ?? 'pending',
-      paymentStatus: json['paymentStatus'] ?? 'unpaid',
+      status: json['status']?.toString() ?? 'pending',
+      paymentStatus: json['paymentStatus']?.toString() ?? 'unpaid',
       amountPaid: parseDouble(json['amountPaid']),
-      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt']) : null,
-      items: json['items'] != null 
-          ? (json['items'] as List).map((item) => OrderItem.fromJson(item)).toList()
+      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,
+      items: json['items'] is List<dynamic>
+          ? (json['items'] as List<dynamic>).whereType<Map<String, dynamic>>().map((item) => OrderItem.fromJson(item)).toList()
           : [],
-      cafeteria: json['customer'] != null ? Cafeteria.fromJson(json['customer']) : null,
+      cafeteria: json['customer'] is Map<String, dynamic> ? Cafeteria.fromJson(json['customer'] as Map<String, dynamic>) : null,
       delivererId: json['delivererId']?.toString(),
     );
   }
+  
+  /// Empty order for fallback
+  factory Order.empty() => Order(
+    id: '',
+    organizationId: '',
+    customerId: '',
+    date: '',
+    total: 0.0,
+    status: 'pending',
+    paymentStatus: 'unpaid',
+    amountPaid: 0.0,
+    items: [],
+  );
 
   Map<String, dynamic> toJson() {
     return {
@@ -108,7 +121,7 @@ class OrderItem {
       id: json['id']?.toString() ?? '',
       orderId: json['orderId']?.toString() ?? '',
       productId: json['productId']?.toString() ?? '',
-      productName: json['productName'] ?? '',
+      productName: json['productName']?.toString() ?? '',
       unitPrice: parseDouble(json['unitPrice']),
       quantity: parseInt(json['quantity']),
     );
@@ -148,9 +161,9 @@ class Cafeteria {
   factory Cafeteria.fromJson(Map<String, dynamic> json) {
     return Cafeteria(
       id: json['id']?.toString() ?? '',
-      name: json['name'] ?? '',
-      phone: json['phone'],
-      address: json['address'],
+      name: json['name']?.toString() ?? '',
+      phone: json['phone']?.toString(),
+      address: json['address']?.toString(),
       latitude: json['latitude'] != null ? parseDouble(json['latitude']) : null,
       longitude: json['longitude'] != null ? parseDouble(json['longitude']) : null,
     );

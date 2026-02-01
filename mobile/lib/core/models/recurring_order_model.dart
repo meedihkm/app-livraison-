@@ -36,24 +36,25 @@ class RecurringOrder {
   });
 
   factory RecurringOrder.fromJson(Map<String, dynamic> json) => RecurringOrder(
-    id: json['id'],
-    organizationId: json['organizationId'],
-    cafeteriaId: json['cafeteriaId'],
-    cafeteriaName: json['cafeteriaName'],
-    name: json['name'],
-    frequency: json['frequency'] ?? 'weekly',
-    dayOfWeek: json['dayOfWeek'],
-    dayOfMonth: json['dayOfMonth'],
-    timeOfDay: json['timeOfDay'] ?? '06:00:00',
-    active: json['active'] ?? true,
+    id: json['id']?.toString() ?? '',
+    organizationId: json['organizationId']?.toString(),
+    cafeteriaId: json['cafeteriaId']?.toString() ?? '',
+    cafeteriaName: json['cafeteriaName']?.toString(),
+    name: json['name']?.toString(),
+    frequency: json['frequency']?.toString() ?? 'weekly',
+    dayOfWeek: (json['dayOfWeek'] as num?)?.toInt(),
+    dayOfMonth: (json['dayOfMonth'] as num?)?.toInt(),
+    timeOfDay: json['timeOfDay']?.toString() ?? '06:00:00',
+    active: json['active'] != false,
     lastGeneratedAt: json['lastGeneratedAt'] != null 
       ? DateTime.tryParse(json['lastGeneratedAt'].toString()) 
       : null,
     nextGenerationAt: json['nextGenerationAt'] != null 
       ? DateTime.tryParse(json['nextGenerationAt'].toString()) 
       : null,
-    createdAt: DateTime.parse(json['createdAt']),
-    items: (json['items'] as List? ?? [])
+    createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
+    items: (json['items'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
         .map((e) => RecurringOrderItem.fromJson(e))
         .toList(),
   );
@@ -123,10 +124,10 @@ class RecurringOrderItem {
   });
 
   factory RecurringOrderItem.fromJson(Map<String, dynamic> json) => RecurringOrderItem(
-    id: json['id'],
-    productId: json['productId'],
-    productName: json['productName'],
-    quantity: json['quantity'] ?? 1,
+    id: json['id']?.toString(),
+    productId: json['productId']?.toString() ?? '',
+    productName: json['productName']?.toString(),
+    quantity: (json['quantity'] as num?)?.toInt() ?? 1,
   );
 
   Map<String, dynamic> toJson() => {

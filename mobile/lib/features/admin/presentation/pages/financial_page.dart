@@ -79,8 +79,8 @@ class _FinancialPageState extends State<FinancialPage> {
       ]);
 
       setState(() {
-        _overview = results[0]['data'];
-        _debts = results[1]['data'] ?? [];
+        _overview = results[0]['data'] as Map<String, dynamic>?;
+        _debts = results[1]['data'] as List<dynamic>? ?? [];
         _isLoading = false;
       });
     } catch (e) {
@@ -286,11 +286,11 @@ class _FinancialPageState extends State<FinancialPage> {
                 leading: CircleAvatar(
                   child: Text('${index + 1}'),
                 ),
-                title: Text(client['name'] ?? 'Client'),
+                title: Text((client['name'] as String?) ?? 'Client'),
                 subtitle: Text(
                   '${client['orderCount']} commandes • ${currencyFormat.format(client['totalRevenue'] ?? 0)}',
                 ),
-                trailing: client['totalDebt'] > 0
+                trailing: ((client['totalDebt'] as num?) ?? 0) > 0
                     ? Chip(
                         label: Text(
                           currencyFormat.format(client['totalDebt']),
@@ -332,16 +332,16 @@ class _FinancialPageState extends State<FinancialPage> {
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (context, index) {
               final deliverer = delivererStats[index];
-              final totalDeliveries = deliverer['totalDeliveries'] ?? 0;
-              final deliveredCount = deliverer['deliveredCount'] ?? 0;
+              final totalDeliveries = (deliverer['totalDeliveries'] as int?) ?? 0;
+              final deliveredCount = (deliverer['deliveredCount'] as int?) ?? 0;
               final successRate =
                   totalDeliveries > 0 ? (deliveredCount / totalDeliveries * 100).toStringAsFixed(0) : '0';
 
               return ListTile(
                 leading: CircleAvatar(
-                  child: Text(deliverer['name']?.substring(0, 1) ?? 'L'),
+                  child: Text((deliverer['name'] as String?)?.substring(0, 1) ?? 'L'),
                 ),
-                title: Text(deliverer['name'] ?? 'Livreur'),
+                title: Text((deliverer['name'] as String?) ?? 'Livreur'),
                 subtitle: Text(
                   '$deliveredCount/$totalDeliveries livrées ($successRate%) • ${currencyFormat.format(deliverer['amountCollected'] ?? 0)}',
                 ),
@@ -393,7 +393,7 @@ class _FinancialPageState extends State<FinancialPage> {
                 leading: const CircleAvatar(
                   child: Icon(Icons.person),
                 ),
-                title: Text(debt['name'] ?? 'Client'),
+                title: Text((debt['name'] as String?) ?? 'Client'),
                 subtitle: Text(
                   '${debt['unpaidOrders']} commandes impayées',
                 ),
@@ -410,7 +410,7 @@ class _FinancialPageState extends State<FinancialPage> {
                     ),
                   ],
                 ),
-                onTap: () => _showDebtDetail(debt['customerId']),
+                onTap: () => _showDebtDetail(debt['customerId'] as String),
               );
             },
           ),
@@ -433,7 +433,7 @@ class _FinancialPageState extends State<FinancialPage> {
 
       showDialog(
         context: context,
-        builder: (context) => _DebtDetailDialog(data: result['data']),
+        builder: (context) => _DebtDetailDialog(data: result['data'] as Map<String, dynamic>),
       );
     } catch (e) {
       Navigator.pop(context);
@@ -460,7 +460,7 @@ class _DebtDetailDialog extends StatelessWidget {
     final currencyFormat = NumberFormat.currency(symbol: 'DA', decimalDigits: 0);
 
     return AlertDialog(
-      title: Text(customer['name'] ?? 'Client'),
+      title: Text((customer['name'] as String?) ?? 'Client'),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -485,7 +485,7 @@ class _DebtDetailDialog extends StatelessWidget {
                       'Reste: ${currencyFormat.format(order['remaining'])}',
                     ),
                     trailing: Chip(
-                      label: Text(order['paymentStatus'] ?? 'unpaid'),
+                      label: Text((order['paymentStatus'] as String?) ?? 'unpaid'),
                       backgroundColor:
                           order['paymentStatus'] == 'partial' ? Colors.orange.shade100 : Colors.red.shade100,
                     ),

@@ -18,14 +18,14 @@ class _DelivererDetailPageState extends State<DelivererDetailPage> {
   @override
   void initState() {
     super.initState();
-    _notesController.text = widget.deliverer['notes'] ?? '';
+    _notesController.text = (widget.deliverer['notes'] as String?) ?? '';
     _loadDeliveries();
   }
 
   Future<void> _loadDeliveries() async {
     try {
-      final response = await _apiService.getDeliveries(delivererId: widget.deliverer['id'], limit: 100);
-      if (response['success']) {
+      final response = await _apiService.getDeliveries(delivererId: widget.deliverer['id'] as String, limit: 100);
+      if (response['success'] == true) {
         final allDeliveries = response['data'] as List;
         setState(() {
           _deliveries = allDeliveries; // API already filtered by delivererId
@@ -113,7 +113,7 @@ class _DelivererDetailPageState extends State<DelivererDetailPage> {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      deliverer['name'] ?? 'Livreur',
+                                      (deliverer['name'] as String?) ?? 'Livreur',
                                       style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                                     ),
                                   ),
@@ -126,9 +126,9 @@ class _DelivererDetailPageState extends State<DelivererDetailPage> {
                                 ],
                               ),
                               if (deliverer['email'] != null)
-                                Text(deliverer['email'], style: TextStyle(color: Colors.white70)),
+                                Text(deliverer['email'] as String, style: TextStyle(color: Colors.white70)),
                               if (deliverer['phone'] != null && deliverer['phone'].toString().isNotEmpty)
-                                Text(deliverer['phone'], style: TextStyle(color: Colors.white70)),
+                                Text(deliverer['phone'] as String, style: TextStyle(color: Colors.white70)),
                             ],
                           ),
                         ),
@@ -178,7 +178,7 @@ class _DelivererDetailPageState extends State<DelivererDetailPage> {
                   if (_deliveries.isEmpty)
                     Center(child: Text('Aucune livraison', style: TextStyle(color: Colors.grey)))
                   else
-                    ..._deliveries.take(15).map((delivery) => _buildDeliveryCard(delivery)),
+                    ..._deliveries.take(15).map((delivery) => _buildDeliveryCard(delivery as Map<String, dynamic>)),
                 ],
               ),
             ),
@@ -206,8 +206,8 @@ class _DelivererDetailPageState extends State<DelivererDetailPage> {
   }
 
   Widget _buildDeliveryCard(Map<String, dynamic> delivery) {
-    final date = DateTime.tryParse(delivery['createdAt'] ?? '');
-    final status = delivery['status'] ?? 'pending';
+    final date = DateTime.tryParse((delivery['createdAt'] as String?) ?? '');
+    final status = (delivery['status'] as String?) ?? 'pending';
     final orders = delivery['orders'] as List? ?? [];
     final orderCount = orders.length;
 
@@ -286,7 +286,7 @@ class _DelivererDetailPageState extends State<DelivererDetailPage> {
 
     if (confirm == true) {
       try {
-        await _apiService.toggleUser(deliverer['id']);
+        await _apiService.toggleUser(deliverer['id'] as String);
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Livreur ${isBlocked ? 'débloqué' : 'bloqué'}'), backgroundColor: isBlocked ? Colors.green : Colors.orange),

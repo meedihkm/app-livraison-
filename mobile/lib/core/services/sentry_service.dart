@@ -42,7 +42,7 @@ class SentryService {
     await Sentry.captureException(
       exception,
       stackTrace: stackTrace,
-      hint: hint,
+      hint: hint as Hint?,
     );
   }
 

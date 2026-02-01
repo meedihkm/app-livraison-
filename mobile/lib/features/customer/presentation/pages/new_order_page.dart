@@ -46,11 +46,11 @@ class _NewOrderPageState extends State<NewOrderPage> {
   Future<void> _loadProducts() async {
     try {
       final response = await _apiService.getProducts();
-      if (response['success']) {
+      if (response['success'] == true) {
         setState(() {
           _products = (response['data'] as List)
-              .where((json) => json['active'] == true)
-              .map((json) => Product.fromJson(json))
+              .where((json) => (json as Map<String, dynamic>)['active'] == true)
+              .map((json) => Product.fromJson(json as Map<String, dynamic>))
               .toList();
           _filteredProducts = _products;
           _isLoading = false;
@@ -67,10 +67,10 @@ class _NewOrderPageState extends State<NewOrderPage> {
   Future<void> _loadFavorites() async {
     try {
       final response = await _favoriteService.getMyFavorites();
-      if (response['success'] && response['data'] != null) {
+      if (response['success'] == true && response['data'] != null) {
         setState(() {
           _favorites = (response['data'] as List)
-              .map((json) => FavoriteOrder.fromJson(json))
+              .map((json) => FavoriteOrder.fromJson(json as Map<String, dynamic>))
               .toList();
         });
       }
@@ -82,9 +82,9 @@ class _NewOrderPageState extends State<NewOrderPage> {
   Future<void> _loadPreferences() async {
     try {
       final response = await _favoriteService.getPreferences();
-      if (response['success'] && response['data'] != null) {
+      if (response['success'] == true && response['data'] != null) {
         setState(() {
-          _preferences = UserPreferences.fromJson(response['data']);
+          _preferences = UserPreferences.fromJson(response['data'] as Map<String, dynamic>);
         });
       }
     } catch (e) {
@@ -229,8 +229,8 @@ class _NewOrderPageState extends State<NewOrderPage> {
   Future<void> _detectPattern(List<Map<String, dynamic>> items) async {
     try {
       final response = await _favoriteService.detectPattern(items: items);
-      if (response['success'] && response['data']?['should_suggest'] == true) {
-        final occurrences = response['data']['occurrences'] ?? 0;
+      if (response['success'] == true && (response['data'] as Map<String, dynamic>?)?['should_suggest'] == true) {
+        final occurrences = (response['data'] as Map<String, dynamic>)['occurrences'] as int? ?? 0;
         _showPatternSuggestion(items, occurrences);
       }
     } catch (e) {

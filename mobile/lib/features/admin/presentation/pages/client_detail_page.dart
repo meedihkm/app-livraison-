@@ -52,8 +52,8 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
     _settings = widget.settingsService ?? SettingsService();
     _financialService = FinancialService();
     _tabController = TabController(length: 4, vsync: this);
-    _notesController.text = widget.client['notes'] ?? '';
-    _addressController.text = widget.client['address'] ?? '';
+    _notesController.text = (widget.client['notes'] as String?) ?? '';
+    _addressController.text = (widget.client['address'] as String?) ?? '';
     if (widget.client['credit_limit'] != null) {
       _creditLimit = (widget.client['credit_limit'] as num).toDouble();
       _creditLimitController.text = _creditLimit!.toStringAsFixed(0);
@@ -74,7 +74,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
     await _settings.loadSettings();
 
     // Essayer le cache d'abord
-    final cachedHistory = await _cacheService.getCachedClientHistory(widget.client['id']);
+    final cachedHistory = await _cacheService.getCachedClientHistory(widget.client['id'] as String);
     if (cachedHistory != null) {
       setState(() {
         _orders = cachedHistory.where((o) => o['type'] == 'order').toList();
@@ -107,8 +107,8 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
 
       // Mettre en cache
       final history = [
-        ...clientOrders.map((o) => {...o as Map<String, dynamic>, 'type': 'order'}),
-        ...clientDeliveries.map((d) => {...d as Map<String, dynamic>, 'type': 'delivery'}),
+        ...clientOrders.map((o) => {...(o as Map<String, dynamic>), 'type': 'order'}),
+        ...clientDeliveries.map((d) => {...(d as Map<String, dynamic>), 'type': 'delivery'}),
       ];
       await _cacheService.cacheClientHistory(widget.client['id'] as String, history);
 
@@ -128,16 +128,16 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
 
   Future<void> _loadPackaging() async {
     try {
-      final balanceResult = await _apiService.getCustomerPackagingBalance(widget.client['id']);
-      final historyResult = await _apiService.getCustomerPackagingHistory(widget.client['id']);
+      final balanceResult = await _apiService.getCustomerPackagingBalance(widget.client['id'] as String);
+      final historyResult = await _apiService.getCustomerPackagingHistory(widget.client['id'] as String);
 
       if (mounted) {
         setState(() {
           if (balanceResult['success'] == true && balanceResult['data'] != null) {
-            _packagingBalance = (balanceResult['data'] as List).map((e) => PackagingBalance.fromJson(e)).toList();
+            _packagingBalance = (balanceResult['data'] as List<dynamic>).map((e) => PackagingBalance.fromJson(e as Map<String, dynamic>)).toList();
           }
           if (historyResult['success'] == true && historyResult['data'] != null) {
-            _packagingHistory = (historyResult['data'] as List).map((e) => PackagingTransaction.fromJson(e)).toList();
+            _packagingHistory = (historyResult['data'] as List<dynamic>).map((e) => PackagingTransaction.fromJson(e as Map<String, dynamic>)).toList();
           }
         });
       }
@@ -173,7 +173,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
 
   Future<void> _callClient() async {
     final phone = widget.client['phone'];
-    if (phone != null && phone.isNotEmpty) {
+    if (phone != null && phone.toString().isNotEmpty) {
       final uri = Uri.parse('tel:$phone');
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri);
@@ -197,7 +197,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
     if (newAddress.isEmpty) return;
 
     try {
-      await _apiService.updateUserAddress(widget.client['id'], newAddress);
+      await _apiService.updateUserAddress(widget.client['id'] as String, newAddress);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Adresse mise à jour'), backgroundColor: Colors.green),
       );
@@ -231,7 +231,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
 
   Future<void> _performLimitUpdate(double? limit) async {
     try {
-      await _apiService.updateCreditLimit(widget.client['id'], limit);
+      await _apiService.updateCreditLimit(widget.client['id'] as String, limit);
       setState(() {
         _creditLimit = limit;
         widget.client['credit_limit'] = limit; // Update local reference
@@ -406,7 +406,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
             radius: 40,
             backgroundColor: Colors.white.withValues(alpha: 0.2),
             child: Text(
-              (client['name'] ?? 'C')[0].toUpperCase(),
+              ((client['name'] as String?) ?? 'C')[0].toUpperCase(),
               style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
             ),
           ),
@@ -415,7 +415,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                client['name'] ?? 'Client',
+                (client['name'] as String?) ?? 'Client',
                 style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
               ),
               if (isBlocked) ...[
@@ -431,7 +431,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
           if (client['email'] != null)
             Padding(
               padding: EdgeInsets.only(top: 4),
-              child: Text(client['email'], style: TextStyle(color: Colors.white70, fontSize: 14)),
+              child: Text(client['email'] as String, style: TextStyle(color: Colors.white70, fontSize: 14)),
             ),
         ],
       ),
@@ -454,12 +454,12 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
           SizedBox(height: 16),
 
           // Téléphone
-          _buildInfoRow(Icons.phone, 'Téléphone', client['phone'] ?? 'Non renseigné',
+          _buildInfoRow(Icons.phone, 'Téléphone', (client['phone'] as String?) ?? 'Non renseigné',
               onTap: client['phone'] != null ? _callClient : null),
           Divider(height: 24),
 
           // Email
-          _buildInfoRow(Icons.email, 'Email', client['email'] ?? 'Non renseigné'),
+          _buildInfoRow(Icons.email, 'Email', (client['email'] as String?) ?? 'Non renseigné'),
           Divider(height: 24),
 
           // Adresse
@@ -512,7 +512,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
 
           // Date d'inscription
           _buildInfoRow(
-              Icons.calendar_today, 'Client depuis', _formatDate(client['createdAt'] ?? client['created_at'])),
+              Icons.calendar_today, 'Client depuis', _formatDate((client['createdAt'] as String?) ?? (client['created_at'] as String?))),
         ],
       ),
     );
@@ -729,35 +729,35 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
     }
 
     // Trier par date décroissante
-    final sortedOrders = List.from(_orders)..sort((a, b) => (b['createdAt'] ?? '').compareTo(a['createdAt'] ?? ''));
+    final sortedOrders = List<dynamic>.from(_orders)..sort((a, b) => ((b as Map<String, dynamic>)['createdAt'] as String? ?? '').compareTo((a as Map<String, dynamic>)['createdAt'] as String? ?? ''));
 
     return ListView.builder(
       padding: EdgeInsets.all(8),
       itemCount: sortedOrders.length,
       itemBuilder: (context, index) {
-        final order = sortedOrders[index];
+        final order = sortedOrders[index] as Map<String, dynamic>;
         return _buildOrderCard(order, index + 1);
       },
     );
   }
 
   Widget _buildOrderCard(Map<String, dynamic> order, int index) {
-    final date = DateTime.tryParse(order['createdAt'] ?? '');
+    final date = DateTime.tryParse((order['createdAt'] as String?) ?? '');
     final total = _parseDouble(order['total']);
     final paid = _parseDouble(order['amountPaid']);
     final remaining = total - paid;
-    final status = order['status'] ?? 'pending';
-    final orderNumber = order['orderNumber'] ?? order['order_number'];
+    final status = (order['status'] as String?) ?? 'pending';
+    final orderNumber = (order['orderNumber'] as String?) ?? (order['order_number'] as String?);
 
     return Card(
       margin: EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ExpansionTile(
         leading: CircleAvatar(
-          backgroundColor: _getStatusColor(status).withValues(alpha: 0.2),
+          backgroundColor: _getStatusColor(status as String?).withValues(alpha: 0.2),
           child: Text(
             orderNumber != null ? '#$orderNumber' : '#$index',
-            style: TextStyle(color: _getStatusColor(status), fontWeight: FontWeight.bold, fontSize: 12),
+            style: TextStyle(color: _getStatusColor(status as String?), fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ),
         title: Row(
@@ -767,10 +767,10 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
             Container(
               padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: _getStatusColor(status),
+                color: _getStatusColor(status as String?),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Text(_getStatusLabel(status),
+              child: Text(_getStatusLabel(status as String?),
                   style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500)),
             ),
           ],
@@ -809,7 +809,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
                     child: Row(
                       children: [
                         Text('${quantity}x ', style: TextStyle(fontWeight: FontWeight.w500)),
-                        Expanded(child: Text(item['productName'] ?? 'Produit')),
+                        Expanded(child: Text((item['productName'] as String?) ?? 'Produit')),
                         Text('${_parseDouble(item['unitPrice']).toStringAsFixed(0)} DA',
                             style: TextStyle(color: Colors.grey[600])),
                       ],
@@ -857,8 +857,8 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
     }
 
     // Trier par date décroissante
-    final sortedDeliveries = List.from(_deliveries)
-      ..sort((a, b) => (b['createdAt'] ?? '').compareTo(a['createdAt'] ?? ''));
+    final sortedDeliveries = List<Map<String, dynamic>>.from(_deliveries.cast<Map<String, dynamic>>())
+      ..sort((a, b) => ((b['createdAt'] as String?) ?? '').compareTo((a['createdAt'] as String?) ?? ''));
 
     return ListView.builder(
       padding: EdgeInsets.all(8),
@@ -871,14 +871,14 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
   }
 
   Widget _buildDeliveryCard(Map<String, dynamic> delivery) {
-    final status = delivery['status'] ?? 'assigned';
-    final delivererName = delivery['deliverer']?['name'] ?? 'Livreur';
+    final status = (delivery['status'] as String?) ?? 'assigned';
+    final delivererName = (delivery['deliverer'] as Map<String, dynamic>?)?['name'] as String? ?? 'Livreur';
     final collected = _parseDouble(delivery['amountCollected']);
-    final comment = delivery['comment'];
-    final failureReason = delivery['failureReason'];
-    final deliveredAt = delivery['deliveredAt'] != null ? DateTime.tryParse(delivery['deliveredAt']) : null;
+    final comment = delivery['comment'] as String?;
+    final failureReason = delivery['failureReason'] as String?;
+    final deliveredAt = delivery['deliveredAt'] != null ? DateTime.tryParse(delivery['deliveredAt'] as String) : null;
     final attempts =
-        delivery['attempts'] is int ? delivery['attempts'] : int.tryParse(delivery['attempts']?.toString() ?? '0') ?? 0;
+        delivery['attempts'] is int ? delivery['attempts'] as int : int.tryParse(delivery['attempts']?.toString() ?? '0') ?? 0;
 
     return Card(
       margin: EdgeInsets.only(bottom: 8),
@@ -892,15 +892,15 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
               children: [
                 CircleAvatar(
                   radius: 18,
-                  backgroundColor: _getDeliveryStatusColor(status).withValues(alpha: 0.2),
-                  child: Icon(_getDeliveryStatusIcon(status), color: _getDeliveryStatusColor(status), size: 18),
+                  backgroundColor: _getDeliveryStatusColor(status as String?).withValues(alpha: 0.2),
+                  child: Icon(_getDeliveryStatusIcon(status as String?), color: _getDeliveryStatusColor(status as String?), size: 18),
                 ),
                 SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(_getDeliveryStatusLabel(status), style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(_getDeliveryStatusLabel(status as String?), style: TextStyle(fontWeight: FontWeight.bold)),
                       Text('Par $delivererName', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                     ],
                   ),
@@ -939,7 +939,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
                 ],
               ),
             ],
-            if (failureReason != null && failureReason.isNotEmpty) ...[
+            if (failureReason is String && failureReason.isNotEmpty) ...[
               SizedBox(height: 8),
               Container(
                 padding: EdgeInsets.all(8),
@@ -956,7 +956,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
                 ),
               ),
             ],
-            if (comment != null && comment.isNotEmpty) ...[
+            if (comment is String && comment.isNotEmpty) ...[
               SizedBox(height: 8),
               Container(
                 padding: EdgeInsets.all(8),
@@ -1104,7 +1104,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
 
     if (confirm == true) {
       try {
-        await _apiService.toggleUser(client['id']);
+        await _apiService.toggleUser(client['id'] as String);
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1135,11 +1135,11 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
       padding: EdgeInsets.all(8),
       itemCount: _debtHistory.length,
       itemBuilder: (context, index) {
-        final payment = _debtHistory[index];
-        final date = DateTime.tryParse(payment['created_at'] ?? '');
+        final payment = _debtHistory[index] as Map<String, dynamic>;
+        final date = DateTime.tryParse((payment['created_at'] as String?) ?? '');
         final amount = _parseDouble(payment['amount']);
-        final collectorName = payment['collector_name'] ?? 'Inconnu';
-        final type = payment['payment_type'] ?? 'cash';
+        final collectorName = (payment['collector_name'] as String?) ?? 'Inconnu';
+        final type = (payment['payment_type'] as String?) ?? 'cash';
 
         return Card(
           margin: EdgeInsets.only(bottom: 8),

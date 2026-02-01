@@ -26,7 +26,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
       final response = await _api.getMyFavorites();
       if (response['success'] == true && mounted) {
         setState(() {
-          _favorites = response['data'] ?? [];
+          _favorites = (response['data'] as List<dynamic>?) ?? [];
           _isLoading = false;
         });
       }
@@ -42,10 +42,10 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
   Future<void> _useFavorite(Map<String, dynamic> favorite) async {
     try {
-      await _api.useFavorite(favorite['id']);
+      await _api.useFavorite(favorite['id'] as String);
 
       // Créer une commande avec les items du favori
-      final items = List<Map<String, dynamic>>.from(favorite['items']);
+      final items = (favorite['items'] as List<dynamic>).cast<Map<String, dynamic>>();
 
       // Naviguer vers la page de nouvelle commande avec les items pré-remplis
       if (mounted) {
@@ -146,11 +146,11 @@ class _FavoritesPageState extends State<FavoritesPage> {
                     padding: const EdgeInsets.all(16),
                     itemCount: _favorites.length,
                     itemBuilder: (context, index) {
-                      final favorite = _favorites[index];
-                      final items = List<Map<String, dynamic>>.from(favorite['items'] ?? []);
+                      final favorite = _favorites[index] as Map<String, dynamic>;
+                      final items = (favorite['items'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
                       final total = favorite['total'] ?? 0.0;
                       final orderCount = favorite['order_count'] ?? 0;
-                      final isAutoDetected = favorite['is_auto_detected'] ?? false;
+                      final isAutoDetected = (favorite['is_auto_detected'] as bool?) ?? false;
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
@@ -165,7 +165,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                   children: [
                                     Expanded(
                                       child: Text(
-                                        favorite['name'] ?? 'Sans nom',
+                                        favorite['name']?.toString() ?? 'Sans nom',
                                         style: const TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold,
@@ -186,7 +186,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                       ),
                                     IconButton(
                                       icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                      onPressed: () => _deleteFavorite(favorite['id']),
+                                      onPressed: () => _deleteFavorite(favorite['id'] as String),
                                     ),
                                   ],
                                 ),
@@ -195,7 +195,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                   '${items.length} produit(s) • ${total.toStringAsFixed(0)} DA',
                                   style: TextStyle(color: Colors.grey[600]),
                                 ),
-                                if (orderCount > 0) ...[
+                                if ((orderCount as int) > 0) ...[
                                   const SizedBox(height: 4),
                                   Text(
                                     'Utilisé $orderCount fois',

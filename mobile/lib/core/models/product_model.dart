@@ -44,15 +44,15 @@ class Product {
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
       id: json['id']?.toString() ?? '',
-      name: json['name'] ?? '',
+      name: json['name']?.toString() ?? '',
       price: parseDouble(json['price']),
-      imageUrl: json['image_url'],
-      active: json['active'] ?? true,
+      imageUrl: json['image_url']?.toString(),
+      active: json['active'] != false,
       organizationId: json['organization_id']?.toString() ?? '',
-      category: json['category'],
+      category: json['category']?.toString(),
       sortOrder: parseInt(json['sort_order']),
-      isNew: json['is_new'] ?? false,
-      isPromo: json['is_promo'] ?? false,
+      isNew: json['is_new'] == true,
+      isPromo: json['is_promo'] == true,
       promoPrice: json['promo_price'] != null ? parseDouble(json['promo_price']) : null,
     );
   }

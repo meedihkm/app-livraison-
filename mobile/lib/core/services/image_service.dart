@@ -80,7 +80,7 @@ class ImageService {
   }
 
   /// Afficher un dialog pour choisir la source de l'image
-  Future<String?> showImageSourceDialog(context) async {
+  Future<String?> showImageSourceDialog(BuildContext context) async {
     return await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(

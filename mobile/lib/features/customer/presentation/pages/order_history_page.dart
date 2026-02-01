@@ -38,9 +38,9 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
     try {
       final response = await _apiService.getMyOrders(page: _currentPage, limit: _limit);
       
-      if (response['success']) {
+      if (response['success'] as bool) {
         final List<Order> newOrders = (response['data'] as List)
-            .map((json) => Order.fromJson(json))
+            .map((json) => Order.fromJson(json as Map<String, dynamic>))
             .toList();
             
         setState(() {
@@ -50,7 +50,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
           
           // Check pagination metadata if available, otherwise check list length
           if (response['pagination'] != null) {
-            _hasMore = response['pagination']['hasMore'] ?? false;
+            _hasMore = (response['pagination'] as Map<String, dynamic>)['hasMore'] as bool? ?? false;
           } else {
             _hasMore = newOrders.length >= _limit;
           }
@@ -101,11 +101,11 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
   Future<void> _editOrder(Order order) async {
     try {
       final response = await _apiService.getProducts();
-      if (!response['success']) return;
+      if (!(response['success'] as bool)) return;
 
       final products = (response['data'] as List)
-          .where((json) => json['active'] == true)
-          .map((json) => Product.fromJson(json))
+          .where((json) => (json as Map<String, dynamic>)['active'] as bool? ?? false)
+          .map((json) => Product.fromJson(json as Map<String, dynamic>))
           .toList();
 
       Map<String, int> cart = {};

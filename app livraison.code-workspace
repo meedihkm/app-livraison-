@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"git.ignoreLimitWarning": true,
+		"terminal.integrated.defaultProfile.linux": "bash",
+		"kiroAgent.configureMCP": "Disabled"
+	}
+}

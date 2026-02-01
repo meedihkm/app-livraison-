@@ -31,12 +31,16 @@ class FinancialOverview {
 
   factory FinancialOverview.fromJson(Map<String, dynamic> json) {
     return FinancialOverview(
-      summary: FinancialSummary.fromJson(json['summary'] ?? {}),
-      topClients: (json['topClients'] as List? ?? [])
-          .map((e) => TopClient.fromJson(e as Map<String, dynamic>))
+      summary: json['summary'] is Map<String, dynamic>
+          ? FinancialSummary.fromJson(json['summary'] as Map<String, dynamic>)
+          : FinancialSummary(),
+      topClients: (json['topClients'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map((e) => TopClient.fromJson(e))
           .toList(),
-      delivererStats: (json['delivererStats'] as List? ?? [])
-          .map((e) => DelivererStat.fromJson(e as Map<String, dynamic>))
+      delivererStats: (json['delivererStats'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map((e) => DelivererStat.fromJson(e))
           .toList(),
     );
   }
@@ -190,8 +194,9 @@ class CustomerDebt {
       credit: json['credit'] != null 
           ? CreditInfo.fromJson(json['credit'] as Map<String, dynamic>)
           : null,
-      orders: (json['unpaidOrders'] as List? ?? [])
-          .map((e) => UnpaidOrder.fromJson(e as Map<String, dynamic>))
+      orders: (json['unpaidOrders'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map((e) => UnpaidOrder.fromJson(e))
           .toList(),
       lastOrderDate: json['lastOrderDate'] != null 
           ? DateTime.tryParse(json['lastOrderDate'].toString())
@@ -329,8 +334,9 @@ class Payment {
       createdAt: json['createdAt'] != null 
           ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
-      orders: (json['ordersAffected'] as List? ?? [])
-          .map((e) => PaymentOrderAllocation.fromJson(e as Map<String, dynamic>))
+      orders: (json['ordersAffected'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map((e) => PaymentOrderAllocation.fromJson(e))
           .toList(),
     );
   }
@@ -447,8 +453,9 @@ class PaginatedDebts {
 
   factory PaginatedDebts.fromJson(Map<String, dynamic> json) {
     return PaginatedDebts(
-      data: (json['data'] as List? ?? [])
-          .map((e) => CustomerDebt.fromJson(e as Map<String, dynamic>))
+      data: (json['data'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map((e) => CustomerDebt.fromJson(e))
           .toList(),
       pagination: PaginationInfo.fromJson(json['pagination'] as Map<String, dynamic>? ?? {}),
     );

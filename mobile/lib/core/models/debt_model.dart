@@ -24,11 +24,11 @@ class CustomerDebt {
   });
 
   factory CustomerDebt.fromJson(Map<String, dynamic> json) => CustomerDebt(
-    customerId: json['customer_id'],
-    customerName: json['customer_name'] ?? json['name'] ?? '',
-    customerPhone: json['customer_phone'] ?? json['phone'],
+    customerId: json['customer_id']?.toString() ?? '',
+    customerName: (json['customer_name'] ?? json['name'])?.toString() ?? '',
+    customerPhone: (json['customer_phone'] ?? json['phone'])?.toString(),
     totalDebt: (json['total_debt'] as num?)?.toDouble() ?? 0,
-    unpaidOrders: json['unpaid_orders'] ?? 0,
+    unpaidOrders: (json['unpaid_orders'] as num?)?.toInt() ?? 0,
     lastOrderDate: json['last_order_date'] != null 
       ? DateTime.tryParse(json['last_order_date'].toString()) 
       : null,
@@ -69,16 +69,18 @@ class DebtPayment {
   });
 
   factory DebtPayment.fromJson(Map<String, dynamic> json) => DebtPayment(
-    id: json['id'],
-    customerId: json['customer_id'],
-    customerName: json['customer_name'],
-    amount: (json['amount'] as num).toDouble(),
-    paymentType: json['payment_type'],
-    collectedBy: json['collected_by'],
-    collectorName: json['collector_name'],
-    collectorRole: json['collector_role'],
-    deliveryId: json['delivery_id'],
-    note: json['note'],
-    createdAt: DateTime.parse(json['created_at']),
+    id: json['id']?.toString() ?? '',
+    customerId: json['customer_id']?.toString() ?? '',
+    customerName: json['customer_name']?.toString(),
+    amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+    paymentType: json['payment_type']?.toString() ?? '',
+    collectedBy: json['collected_by']?.toString() ?? '',
+    collectorName: json['collector_name']?.toString(),
+    collectorRole: json['collector_role']?.toString() ?? '',
+    deliveryId: json['delivery_id']?.toString(),
+    note: json['note']?.toString(),
+    createdAt: json['created_at'] != null 
+      ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+      : DateTime.now(),
   );
 }

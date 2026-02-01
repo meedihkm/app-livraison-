@@ -42,9 +42,9 @@ class _ProductsPageState extends State<ProductsPage> {
   Future<void> _loadProducts() async {
     try {
       final response = await _apiService.getProducts();
-      if (response['success']) {
+      if (response['success'] as bool) {
         // Filtrer uniquement les produits actifs
-        final allProducts = (response['data'] as List).map((json) => Product.fromJson(json)).toList();
+        final allProducts = (response['data'] as List).map((json) => Product.fromJson(json as Map<String, dynamic>)).toList();
         final products = allProducts.where((p) => p.active).toList();
         
         // Extraire les catégories uniques

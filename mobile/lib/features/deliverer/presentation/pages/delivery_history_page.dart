@@ -25,10 +25,10 @@ class _DeliveryHistoryPageState extends State<DeliveryHistoryPage> {
     setState(() => _isLoading = true);
     try {
       final response = await _apiService.getDeliveryHistory();
-      if (response['success']) {
+      if (response['success'] == true) {
         setState(() {
           _deliveries = (response['data'] as List)
-              .map((json) => Delivery.fromJson(json))
+              .map((json) => Delivery.fromJson(json as Map<String, dynamic>))
               .toList();
           _isLoading = false;
         });

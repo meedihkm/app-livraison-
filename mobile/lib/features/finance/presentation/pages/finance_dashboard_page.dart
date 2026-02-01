@@ -270,6 +270,7 @@ class _FinanceDashboardPageState extends State<FinanceDashboardPage> with Single
                   Expanded(
                     child: DropdownButtonFormField<SortOption>(
                       value: _sortOption,
+                      hint: const Text('Trier par'),
                       decoration: const InputDecoration(
                         labelText: 'Trier par',
                         border: OutlineInputBorder(),

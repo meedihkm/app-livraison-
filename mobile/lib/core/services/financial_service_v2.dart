@@ -61,7 +61,7 @@ class FinancialServiceV2 {
       );
       
       if (response['success'] != true) {
-        throw FinancialException(response['error'] ?? 'Erreur inconnue');
+        throw FinancialException(response['error']?.toString() ?? 'Erreur inconnue');
       }
       
       return FinancialOverview.fromJson(response['data'] as Map<String, dynamic>);
@@ -103,10 +103,10 @@ class FinancialServiceV2 {
       );
       
       if (response['success'] != true) {
-        throw FinancialException(response['error'] ?? 'Erreur inconnue');
+        throw FinancialException(response['error']?.toString() ?? 'Erreur inconnue');
       }
       
-      return PaginatedDebts.fromJson(response as Map<String, dynamic>);
+      return PaginatedDebts.fromJson(response);
     } catch (e) {
       throw FinancialException('Erreur lors du chargement des dettes: $e');
     }
@@ -121,7 +121,7 @@ class FinancialServiceV2 {
       );
       
       if (response['success'] != true) {
-        throw FinancialException(response['error'] ?? 'Client non trouvé');
+        throw FinancialException(response['error']?.toString() ?? 'Client non trouvé');
       }
       
       return CustomerDebt.fromJson(response['data'] as Map<String, dynamic>);
@@ -170,7 +170,7 @@ class FinancialServiceV2 {
       );
       
       if (response['success'] != true) {
-        throw FinancialException(response['error'] ?? 'Erreur lors de l\'enregistrement');
+        throw FinancialException(response['error']?.toString() ?? 'Erreur lors de l\'enregistrement');
       }
       
       return Payment.fromJson(response['data'] as Map<String, dynamic>);
@@ -188,7 +188,7 @@ class FinancialServiceV2 {
       );
       
       if (response['success'] != true) {
-        throw FinancialException(response['error'] ?? 'Erreur inconnue');
+        throw FinancialException(response['error']?.toString() ?? 'Erreur inconnue');
       }
       
       final data = response['data'] as List<dynamic>? ?? [];
@@ -211,7 +211,7 @@ class FinancialServiceV2 {
       );
       
       if (response['success'] != true) {
-        throw FinancialException(response['error'] ?? 'Erreur inconnue');
+        throw FinancialException(response['error']?.toString() ?? 'Erreur inconnue');
       }
       
       final data = response['data'] as List<dynamic>? ?? [];
@@ -234,7 +234,7 @@ class FinancialServiceV2 {
       );
       
       if (response['success'] != true) {
-        throw FinancialException(response['error'] ?? 'Erreur lors de la mise à jour');
+        throw FinancialException(response['error']?.toString() ?? 'Erreur lors de la mise à jour');
       }
       
       return response['data'] as Map<String, dynamic>;

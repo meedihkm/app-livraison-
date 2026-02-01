@@ -104,10 +104,10 @@ class ReportService {
         ),
         ...orders.take(20).map((o) => pw.TableRow(
           children: [
-            _cell(o['customer']?['name'] ?? 'N/A'),
+            _cell((o['customer']?['name'] ?? 'N/A').toString()),
             _cell('${_formatNum(o['total'])} DA'),
             _cell('${_formatNum(o['amountPaid'])} DA'),
-            _cell(_getStatusText(o['status'])),
+            _cell(_getStatusText(o['status']?.toString())),
           ],
         )),
       ],
@@ -138,10 +138,10 @@ class ReportService {
         ),
         ...deliveries.take(20).map((d) => pw.TableRow(
           children: [
-            _cell(d['order']?['customer']?['name'] ?? 'N/A'),
-            _cell(d['deliverer']?['name'] ?? 'N/A'),
+            _cell((d['order']?['customer']?['name'] ?? 'N/A').toString()),
+            _cell((d['deliverer']?['name'] ?? 'N/A').toString()),
             _cell('${_formatNum(d['amountCollected'])} DA'),
-            _cell(_getDeliveryStatusText(d['status'])),
+            _cell(_getDeliveryStatusText(d['status']?.toString())),
           ],
         )),
       ],
@@ -256,7 +256,7 @@ class ReportService {
                   children: [_cell('Client', bold: true), _cell('Dette', bold: true), _cell('Commandes', bold: true)],
                 ),
                 ...debts.map((d) => pw.TableRow(children: [
-                  _cell(d['name'] ?? 'N/A'),
+                  _cell((d['name'] ?? 'N/A').toString()),
                   _cell('${_formatNum(d['debt'])} DA'),
                   _cell('${d['order_count'] ?? 0}'),
                 ])),

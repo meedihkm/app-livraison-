@@ -38,7 +38,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> with OptimizedStateMixi
       final cached = await _cacheService.getCachedDeliveries();
       if (cached != null && cached.isNotEmpty) {
         setState(() {
-          _deliveries = cached.map((json) => Delivery.fromJson(json)).toList();
+          _deliveries = cached.map((json) => Delivery.fromJson(json as Map<String, dynamic>)).toList();
           _hasData = true;
           _isLoading = false;
         });
@@ -49,7 +49,7 @@ class _DeliveriesPageState extends State<DeliveriesPage> with OptimizedStateMixi
       final response = await _apiService.getDeliveries(forceRefresh: forceRefresh);
       if (response['success'] == true) {
         setState(() {
-          _deliveries = (response['data'] as List).map((json) => Delivery.fromJson(json)).toList();
+          _deliveries = (response['data'] as List).map((json) => Delivery.fromJson(json as Map<String, dynamic>)).toList();
           _hasData = _deliveries.isNotEmpty;
           _isLoading = false;
         });

@@ -43,7 +43,7 @@ class _DeliverersMapPageState extends State<DeliverersMapPage> {
   void initState() {
     super.initState();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    _userRole = authProvider.user?['role'];
+    _userRole = authProvider.user?['role'] as String?;
     
     // Initial configuration based on role
     if (_userRole == 'deliverer') {
@@ -91,7 +91,7 @@ class _DeliverersMapPageState extends State<DeliverersMapPage> {
     final response = await _apiService.getDeliverersLocations();
     if (response['success'] == true && mounted) {
       setState(() {
-        _deliverers = List<Map<String, dynamic>>.from(response['data']);
+        _deliverers = List<Map<String, dynamic>>.from(response['data'] as List<dynamic>);
       });
     }
   }
@@ -100,7 +100,7 @@ class _DeliverersMapPageState extends State<DeliverersMapPage> {
     final response = await _apiService.getClientsLocations();
     if (response['success'] == true && mounted) {
       setState(() {
-        _clients = List<Map<String, dynamic>>.from(response['data']);
+        _clients = List<Map<String, dynamic>>.from(response['data'] as List<dynamic>);
       });
     }
   }
@@ -109,7 +109,7 @@ class _DeliverersMapPageState extends State<DeliverersMapPage> {
     // For deliverers, load their assigned route
     final response = await _apiService.getDeliveryRoute();
     if (response['success'] == true && mounted) {
-      final deliveries = List<Map<String, dynamic>>.from(response['data']);
+      final deliveries = List<Map<String, dynamic>>.from(response['data'] as List<dynamic>);
       
       List<Map<String, dynamic>> points = [];
       for (var d in deliveries) {
@@ -121,7 +121,7 @@ class _DeliverersMapPageState extends State<DeliverersMapPage> {
           
           if (lat != 0 && lng != 0) {
             points.add({
-              ...cafeteria, // name, phone, etc.
+              ...(cafeteria as Map<String, dynamic>), // name, phone, etc.
               'latitude': lat,
               'longitude': lng,
               'delivery_id': d['id'],
@@ -302,7 +302,7 @@ class _DeliverersMapPageState extends State<DeliverersMapPage> {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(4)),
-                  child: Text(d['name'] ?? 'Livreur', style: TextStyle(color: Colors.white, fontSize: 10), overflow: TextOverflow.ellipsis),
+                  child: Text((d['name'] as String?) ?? 'Livreur', style: TextStyle(color: Colors.white, fontSize: 10), overflow: TextOverflow.ellipsis),
                 ),
                 Icon(Icons.local_shipping, color: Colors.orange, size: 30),
               ],
@@ -335,7 +335,7 @@ class _DeliverersMapPageState extends State<DeliverersMapPage> {
                  Container(
                     padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(4)),
-                    child: Text(c['name'] ?? 'Client', style: TextStyle(color: Colors.white, fontSize: 10), overflow: TextOverflow.ellipsis),
+                    child: Text((c['name'] as String?) ?? 'Client', style: TextStyle(color: Colors.white, fontSize: 10), overflow: TextOverflow.ellipsis),
                   ),
                 Icon(Icons.store, color: Colors.green, size: 30),
               ],
@@ -584,8 +584,8 @@ class _DeliverersMapPageState extends State<DeliverersMapPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(data['name'] ?? 'Livreur', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Text('Dernière MAJ: ${_getTimeAgo(data['location_updated_at'])}', style: TextStyle(color: Colors.grey)),
+            Text((data['name'] as String?) ?? 'Livreur', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Dernière MAJ: ${_getTimeAgo(data['location_updated_at'] as String?)}', style: TextStyle(color: Colors.grey)),
             SizedBox(height: 16),
             ElevatedButton.icon(
               icon: Icon(Icons.phone),
@@ -606,10 +606,10 @@ class _DeliverersMapPageState extends State<DeliverersMapPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(data['name'] ?? 'Client', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            if (data['address'] != null) Text(data['address'], style: TextStyle(color: Colors.grey), textAlign: TextAlign.center),
+            Text((data['name'] as String?) ?? 'Client', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            if (data['address'] != null) Text(data['address'] as String, style: TextStyle(color: Colors.grey), textAlign: TextAlign.center),
             SizedBox(height: 12),
-            if ((data['active_orders_count'] ?? 0) > 0)
+            if (((data['active_orders_count'] as int?) ?? 0) > 0)
               Container(
                 margin: EdgeInsets.only(bottom: 12),
                 padding: EdgeInsets.all(12),

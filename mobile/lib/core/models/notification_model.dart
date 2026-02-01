@@ -27,16 +27,16 @@ class AppNotification {
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
     return AppNotification(
-      id: json['id'] ?? '',
-      type: json['type'] ?? 'unknown',
-      title: json['title'] ?? 'Notification',
-      message: json['message'] ?? '',
-      data: json['data'] as Map<String, dynamic>?,
-      isRead: json['is_read'] ?? false,
-      priority: json['priority'] ?? 'normal',
-      actionUrl: json['action_url'],
-      createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
-      readAt: json['read_at'] != null ? DateTime.tryParse(json['read_at']) : null,
+      id: json['id']?.toString() ?? '',
+      type: json['type']?.toString() ?? 'unknown',
+      title: json['title']?.toString() ?? 'Notification',
+      message: json['message']?.toString() ?? '',
+      data: json['data'] is Map<String, dynamic> ? json['data'] as Map<String, dynamic> : null,
+      isRead: json['is_read'] == true,
+      priority: json['priority']?.toString() ?? 'normal',
+      actionUrl: json['action_url']?.toString(),
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
+      readAt: json['read_at'] != null ? DateTime.tryParse(json['read_at'].toString()) : null,
     );
   }
 
@@ -110,13 +110,13 @@ class NotificationPreferences {
 
   factory NotificationPreferences.fromJson(Map<String, dynamic> json) {
     return NotificationPreferences(
-      paymentNotifications: json['payment_notifications'] ?? true,
-      debtNotifications: json['debt_notifications'] ?? true,
-      favoriteNotifications: json['favorite_notifications'] ?? true,
-      debtRemindersEnabled: json['debt_reminders_enabled'] ?? false,
-      debtReminderFrequency: json['debt_reminder_frequency'] ?? 7,
-      quietHoursStart: json['quiet_hours_start'],
-      quietHoursEnd: json['quiet_hours_end'],
+      paymentNotifications: json['payment_notifications'] != false,
+      debtNotifications: json['debt_notifications'] != false,
+      favoriteNotifications: json['favorite_notifications'] != false,
+      debtRemindersEnabled: json['debt_reminders_enabled'] == true,
+      debtReminderFrequency: (json['debt_reminder_frequency'] as num?)?.toInt() ?? 7,
+      quietHoursStart: json['quiet_hours_start']?.toString(),
+      quietHoursEnd: json['quiet_hours_end']?.toString(),
     );
   }
 

@@ -75,7 +75,7 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
           final deliverersResponse = responses[1];
           
           if (ordersResponse['success'] == true && ordersResponse['data'] != null) {
-             _orders = (ordersResponse['data'] as List).map((e) => Order.fromJson(e)).toList();
+             _orders = (ordersResponse['data'] as List).map((e) => Order.fromJson(e as Map<String, dynamic>)).toList();
           }
           
           if (deliverersResponse['success'] == true && deliverersResponse['data'] != null) {
@@ -469,7 +469,7 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
         onPressed: () async {
           Navigator.pop(context);
           try {
-            await _apiService.assignDeliverer(order.id, d['id']);
+            await _apiService.assignDeliverer(order.id, d['id'] as String);
             _loadData();
           } catch (e) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));

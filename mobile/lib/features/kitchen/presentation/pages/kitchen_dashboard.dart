@@ -25,9 +25,9 @@ class _KitchenDashboardState extends State<KitchenDashboard> {
   Future<void> _loadOrders() async {
     try {
       final response = await _apiService.getKitchenOrders();
-      if (response['success']) {
+      if (response['success'] == true) {
         setState(() {
-          _orders = (response['data'] as List).map((json) => Order.fromJson(json)).toList();
+          _orders = (response['data'] as List<dynamic>).map((json) => Order.fromJson(json as Map<String, dynamic>)).toList();
           _isLoading = false;
         });
       }

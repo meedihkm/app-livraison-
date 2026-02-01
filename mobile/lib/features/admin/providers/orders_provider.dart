@@ -20,9 +20,9 @@ class OrdersProvider with ChangeNotifier {
       notifyListeners();
 
       final response = await _apiService.getOrders();
-      if (response['success']) {
+      if (response['success'] == true) {
         _orders = (response['data'] as List)
-            .map((json) => Order.fromJson(json))
+            .map((json) => Order.fromJson(json as Map<String, dynamic>))
             .toList();
       }
     } catch (e) {

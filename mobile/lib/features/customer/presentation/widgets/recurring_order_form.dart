@@ -64,7 +64,7 @@ class _RecurringOrderFormState extends State<RecurringOrderForm> {
       if (result['success'] == true && result['data'] != null) {
         setState(() {
           _availableProducts = (result['data'] as List)
-              .map((e) => Product.fromJson(e))
+              .map((e) => Product.fromJson(e as Map<String, dynamic>))
               .toList();
           _isLoadingProducts = false;
         });
@@ -90,6 +90,7 @@ class _RecurringOrderFormState extends State<RecurringOrderForm> {
                 children: [
                   DropdownButtonFormField<String>(
                     value: selectedProductId,
+                    hint: const Text('Sélectionnez un produit'),
                     decoration: InputDecoration(
                       labelText: 'Produit',
                       border: OutlineInputBorder(),
@@ -277,6 +278,7 @@ class _RecurringOrderFormState extends State<RecurringOrderForm> {
                         SizedBox(height: 8),
                         DropdownButtonFormField<int>(
                           value: _dayOfMonth,
+                          hint: const Text('Jour'),
                           decoration: InputDecoration(border: OutlineInputBorder()),
                           items: List.generate(31, (i) => DropdownMenuItem(
                             value: i + 1,

@@ -26,25 +26,25 @@ class AuthProvider with ChangeNotifier {
 
       final response = await _apiService.login(email, password);
       
-      if (response['success']) {
+      if (response['success'] == true) {
         // Nouveau format: accessToken au lieu de token
         final token = response['accessToken'] ?? response['token'];
         final userData = response['user'];
         
-        await _storage.saveToken(token);
-        await _storage.saveUser(userData);
+        await _storage.saveToken(token.toString());
+        await _storage.saveUser(userData as Map<String, dynamic>);
         
         // Sauvegarder le refresh token si présent
         if (response['refreshToken'] != null) {
-          await _storage.saveRefreshToken(response['refreshToken']);
+          await _storage.saveRefreshToken(response['refreshToken'].toString());
         }
         
         _user = userData;
         _isLoading = false;
         
         // Connecter OneSignal
-        if (userData != null && userData['id'] != null) {
-          NotificationService().login(userData['id']);
+        if (userData['id'] != null) {
+          NotificationService().login(userData['id'].toString());
         }
         
         notifyListeners();
@@ -86,9 +86,9 @@ class AuthProvider with ChangeNotifier {
   Future<bool> refreshUser() async {
     try {
       final response = await _apiService.getMe();
-      if (response['success']) {
+      if (response['success'] == true) {
         final userData = response['user'];
-        await _storage.saveUser(userData);
+        await _storage.saveUser(userData as Map<String, dynamic>);
         _user = userData;
         notifyListeners();
         return true;

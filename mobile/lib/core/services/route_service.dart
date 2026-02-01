@@ -28,38 +28,51 @@ class RouteService {
       final response = await http.get(url).timeout(Duration(seconds: 10));
       
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = json.decode(response.body) as Map<String, dynamic>;
         
-        if (data['code'] == 'Ok' && data['trips'] != null && data['trips'].isNotEmpty) {
-          final trip = data['trips'][0];
+        if (data['code'] == 'Ok' && data['trips'] is List && (data['trips'] as List).isNotEmpty) {
+          final trips = data['trips'] as List<dynamic>;
+          final trip = trips[0] as Map<String, dynamic>;
           
           // Extraire la géométrie de la route
-          final geometry = trip['geometry'];
+          final geometry = trip['geometry'] as Map<String, dynamic>?;
           final List<LatLng> routePoints = [];
           
-          if (geometry != null && geometry['coordinates'] != null) {
-            for (var coord in geometry['coordinates']) {
-              routePoints.add(LatLng(coord[1], coord[0])); // [lng, lat] -> LatLng(lat, lng)
+          if (geometry != null && geometry['coordinates'] is List) {
+            final coordinatesList = geometry['coordinates'] as List<dynamic>;
+            for (var coord in coordinatesList) {
+              if (coord is List && coord.length >= 2) {
+                routePoints.add(LatLng(
+                  (coord[1] as num).toDouble(),
+                  (coord[0] as num).toDouble(),
+                ));
+              }
             }
           }
           
           // Extraire l'ordre optimisé des waypoints
           final List<int> waypointOrder = [];
-          if (trip['waypoints'] != null) {
-            for (var wp in trip['waypoints']) {
-              waypointOrder.add(wp['waypoint_index'] as int);
+          if (trip['waypoints'] is List) {
+            final waypointsList = trip['waypoints'] as List<dynamic>;
+            for (var wp in waypointsList) {
+              if (wp is Map<String, dynamic>) {
+                waypointOrder.add(wp['waypoint_index'] as int);
+              }
             }
           }
           
           // Extraire les étapes (legs)
           final List<RouteLeg> legs = [];
-          if (trip['legs'] != null) {
-            for (var leg in trip['legs']) {
-              legs.add(RouteLeg(
-                distance: (leg['distance'] as num).toDouble(),
-                duration: (leg['duration'] as num).toDouble(),
-                steps: _extractSteps(leg['steps']),
-              ));
+          if (trip['legs'] is List) {
+            final legsList = trip['legs'] as List<dynamic>;
+            for (var leg in legsList) {
+              if (leg is Map<String, dynamic>) {
+                legs.add(RouteLeg(
+                  distance: (leg['distance'] as num).toDouble(),
+                  duration: (leg['duration'] as num).toDouble(),
+                  steps: _extractSteps(leg['steps'] as List<dynamic>?),
+                ));
+              }
             }
           }
           
@@ -95,28 +108,38 @@ class RouteService {
       final response = await http.get(url).timeout(Duration(seconds: 10));
       
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = json.decode(response.body) as Map<String, dynamic>;
         
-        if (data['code'] == 'Ok' && data['routes'] != null && data['routes'].isNotEmpty) {
-          final route = data['routes'][0];
+        if (data['code'] == 'Ok' && data['routes'] is List && (data['routes'] as List).isNotEmpty) {
+          final routes = data['routes'] as List<dynamic>;
+          final route = routes[0] as Map<String, dynamic>;
           
-          final geometry = route['geometry'];
+          final geometry = route['geometry'] as Map<String, dynamic>?;
           final List<LatLng> routePoints = [];
           
-          if (geometry != null && geometry['coordinates'] != null) {
-            for (var coord in geometry['coordinates']) {
-              routePoints.add(LatLng(coord[1], coord[0]));
+          if (geometry != null && geometry['coordinates'] is List) {
+            final coordinatesList = geometry['coordinates'] as List<dynamic>;
+            for (var coord in coordinatesList) {
+              if (coord is List && coord.length >= 2) {
+                routePoints.add(LatLng(
+                  (coord[1] as num).toDouble(),
+                  (coord[0] as num).toDouble(),
+                ));
+              }
             }
           }
           
           final List<RouteLeg> legs = [];
-          if (route['legs'] != null) {
-            for (var leg in route['legs']) {
-              legs.add(RouteLeg(
-                distance: (leg['distance'] as num).toDouble(),
-                duration: (leg['duration'] as num).toDouble(),
-                steps: _extractSteps(leg['steps']),
-              ));
+          if (route['legs'] is List) {
+            final legsList = route['legs'] as List<dynamic>;
+            for (var leg in legsList) {
+              if (leg is Map<String, dynamic>) {
+                legs.add(RouteLeg(
+                  distance: (leg['distance'] as num).toDouble(),
+                  duration: (leg['duration'] as num).toDouble(),
+                  steps: _extractSteps(leg['steps'] as List<dynamic>?),
+                ));
+              }
             }
           }
           
@@ -140,12 +163,13 @@ class RouteService {
   List<RouteStep> _extractSteps(List<dynamic>? stepsData) {
     if (stepsData == null) return [];
     
-    return stepsData.map((step) {
+    return stepsData.whereType<Map<String, dynamic>>().map((step) {
+      final maneuver = step['maneuver'] as Map<String, dynamic>?;
       return RouteStep(
         distance: (step['distance'] as num?)?.toDouble() ?? 0,
         duration: (step['duration'] as num?)?.toDouble() ?? 0,
-        instruction: step['maneuver']?['instruction'] ?? '',
-        name: step['name'] ?? '',
+        instruction: (maneuver?['instruction'] as String?) ?? '',
+        name: (step['name'] as String?) ?? '',
       );
     }).toList();
   }

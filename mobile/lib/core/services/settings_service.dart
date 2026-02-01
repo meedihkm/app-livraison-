@@ -33,8 +33,8 @@ class SettingsService extends ChangeNotifier {
     // Charger kitchenMode depuis le serveur
     try {
       final response = await _apiService.getOrganizationSettings();
-      if (response['success']) {
-        _kitchenMode = response['data']['kitchenMode'] ?? false;
+      if (response['success'] == true) {
+        _kitchenMode = (response['data']['kitchenMode'] as bool?) ?? false;
       }
     } catch (e) {
       // Ignorer l'erreur, garder la valeur par défaut

@@ -28,9 +28,9 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _isLoading = true);
     try {
       final response = await _favoriteService.getPreferences();
-      if (response['success']) {
+      if (response['success'] == true) {
         setState(() {
-          _preferences = UserPreferences.fromJson(response['data']);
+          _preferences = UserPreferences.fromJson(response['data'] as Map<String, dynamic>);
           _isLoading = false;
         });
       }
@@ -49,9 +49,9 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<void> _loadNotificationPreferences() async {
     try {
       final response = await _notificationService.getPreferences();
-      if (response['success']) {
+      if (response['success'] == true) {
         setState(() {
-          _notificationPreferences = NotificationPreferences.fromJson(response['data']);
+          _notificationPreferences = NotificationPreferences.fromJson(response['data'] as Map<String, dynamic>);
         });
       }
     } catch (e) {

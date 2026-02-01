@@ -94,8 +94,10 @@ class SyncService {
       // Skip actions marked for review (conflicts)
       if (action['status'] == 'needs_review') continue;
 
-      final type = action['type'];
-      final payload = Map<String, dynamic>.from(action['payload'] as Map);
+      final type = action['type']?.toString();
+      final payload = action['payload'] is Map<dynamic, dynamic>
+          ? Map<String, dynamic>.from(action['payload'] as Map<dynamic, dynamic>)
+          : <String, dynamic>{};
 
       try {
         switch (type) {
@@ -103,7 +105,7 @@ class SyncService {
             await _apiService.createOrder(payload);
             break;
           case 'UPDATE_DELIVERY':
-            final deliveryId = payload['deliveryId'];
+            final deliveryId = payload['deliveryId']?.toString() ?? '';
             payload.remove('deliveryId');
             await _apiService.updateDeliveryStatus(deliveryId, payload);
             break;

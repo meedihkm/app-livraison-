@@ -85,11 +85,11 @@ class ApiService {
       }
     }
 
-    final data = json.decode(response.body);
+    final data = json.decode(response.body) as Map<String, dynamic>;
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return data;
     } else {
-      throw ApiException(response.statusCode, data['error'] ?? 'Erreur serveur');
+      throw ApiException(response.statusCode, data['error']?.toString() ?? 'Erreur serveur');
     }
   }
 
@@ -111,10 +111,10 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = json.decode(response.body) as Map<String, dynamic>;
         if (data['success'] == true) {
-          await _storage.saveToken(data['accessToken']);
-          await _storage.saveRefreshToken(data['refreshToken']);
+          await _storage.saveToken(data['accessToken']?.toString() ?? '');
+          await _storage.saveRefreshToken(data['refreshToken']?.toString() ?? '');
           _isRefreshing = false;
           return true;
         }
@@ -137,13 +137,13 @@ class ApiService {
       body: json.encode({'email': email, 'password': password}),
     );
 
-    final data = json.decode(response.body);
+    final data = json.decode(response.body) as Map<String, dynamic>;
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (data['accessToken'] != null) await _storage.saveToken(data['accessToken']);
-      if (data['refreshToken'] != null) await _storage.saveRefreshToken(data['refreshToken']);
+      if (data['accessToken'] != null) await _storage.saveToken(data['accessToken'].toString());
+      if (data['refreshToken'] != null) await _storage.saveRefreshToken(data['refreshToken'].toString());
       return data;
     } else {
-      throw Exception(data['error'] ?? 'Erreur serveur');
+      throw Exception(data['error']?.toString() ?? 'Erreur serveur');
     }
   }
 
@@ -180,8 +180,8 @@ class ApiService {
       }
     }
     final result = await _request('GET', ApiConstants.products);
-    if (result['success'] == true && result['data'] != null) {
-      await _cache.cacheProducts(result['data']);
+    if (result['success'] == true && result['data'] is List<dynamic>) {
+      await _cache.cacheProducts(result['data'] as List<dynamic>);
     }
     return result;
   }
@@ -223,8 +223,8 @@ class ApiService {
       }
     }
     final result = await _request('GET', ApiConstants.users);
-    if (result['success'] == true && result['data'] != null) {
-      await _cache.cacheUsers(result['data']);
+    if (result['success'] == true && result['data'] is List<dynamic>) {
+      await _cache.cacheUsers(result['data'] as List<dynamic>);
     }
     return result;
   }
@@ -343,12 +343,12 @@ class ApiService {
 
     final result = await _request('GET', '${ApiConstants.deliveries}?$query');
     if (result['success'] == true &&
-        result['data'] != null &&
+        result['data'] is List<dynamic> &&
         page == 1 &&
         delivererId == null &&
         status == null &&
         customerId == null) {
-      await _cache.cacheDeliveries(result['data']);
+      await _cache.cacheDeliveries(result['data'] as List<dynamic>);
     }
     return result;
   }
@@ -376,8 +376,8 @@ class ApiService {
     try {
       final result = await _request('GET', ApiConstants.debts);
       // Backend retourne { data, summary, pagination }
-      if (result['data'] != null) {
-        await _cache.cacheDebts(result['data']);
+      if (result['data'] is List<dynamic>) {
+        await _cache.cacheDebts(result['data'] as List<dynamic>);
         return {
           'success': true,
           'data': result['data'],
@@ -425,7 +425,7 @@ class ApiService {
   Future<Map<String, dynamic>> getCustomerDebt(String customerId) async {
     try {
       final result = await _request('GET', '${ApiConstants.baseUrl}/debts/customers/$customerId');
-      return result['data'] ?? {};
+      return result['data'] is Map<String, dynamic> ? result['data'] as Map<String, dynamic> : {};
     } catch (e) {
       if (e is ApiException && e.statusCode == 404) return {};
       rethrow;
@@ -453,7 +453,7 @@ class ApiService {
   /// Récupère les statistiques globales des dettes
   Future<Map<String, dynamic>> getDebtStats() async {
     final result = await _request('GET', '${ApiConstants.baseUrl}/debts/stats');
-    return result['data'] ?? {};
+    return result['data'] is Map<String, dynamic> ? result['data'] as Map<String, dynamic> : {};
   }
 
   // ===== PAYMENTS (Refactorisé) =====
@@ -480,7 +480,7 @@ class ApiService {
     await _cache.clearCache('cache_debts');
     await _cache.clearCache('cache_orders');
 
-    return result['data'] ?? {};
+    return result['data'] is Map<String, dynamic> ? result['data'] as Map<String, dynamic> : {};
   }
 
   /// Récupère l'historique des paiements
@@ -503,25 +503,27 @@ class ApiService {
   /// Récupère les collections du livreur connecté
   Future<Map<String, dynamic>> getMyCollections() async {
     final result = await _request('GET', '${ApiConstants.baseUrl}/payments/my-collections');
-    return result['data'] ?? {};
+    return result['data'] is Map<String, dynamic> ? result['data'] as Map<String, dynamic> : {};
   }
 
   /// Récupère les statistiques des paiements
   Future<Map<String, dynamic>> getPaymentStats() async {
     final result = await _request('GET', '${ApiConstants.baseUrl}/payments/stats');
-    return result['data'] ?? {};
+    return result['data'] is Map<String, dynamic> ? result['data'] as Map<String, dynamic> : {};
   }
 
   // ===== DEBT (Ancienne méthode - Déprécié) =====
   @Deprecated('Utiliser recordPayment() à la place')
   Future<Map<String, dynamic>> recordDebtPayment(Map<String, dynamic> paymentData) async {
     return recordPayment(
-      customerId: paymentData['customerId'] ?? paymentData['clientId'],
-      amount: (paymentData['amount'] as num).toDouble(),
-      mode: paymentData['mode'] ?? 'cash',
-      deliveryId: paymentData['deliveryId'],
-      targetOrders: paymentData['targetOrders'] != null ? List<String>.from(paymentData['targetOrders']) : null,
-      notes: paymentData['notes'],
+      customerId: (paymentData['customerId'] ?? paymentData['clientId'])?.toString() ?? '',
+      amount: (paymentData['amount'] as num?)?.toDouble() ?? 0.0,
+      mode: paymentData['mode']?.toString() ?? 'cash',
+      deliveryId: paymentData['deliveryId']?.toString(),
+      targetOrders: paymentData['targetOrders'] is List<dynamic> 
+          ? (paymentData['targetOrders'] as List<dynamic>).whereType<String>().toList()
+          : null,
+      notes: paymentData['notes']?.toString(),
     );
   }
 

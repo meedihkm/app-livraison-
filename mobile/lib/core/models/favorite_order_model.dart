@@ -21,19 +21,20 @@ class FavoriteOrder {
 
   factory FavoriteOrder.fromJson(Map<String, dynamic> json) {
     return FavoriteOrder(
-      id: json['id'] ?? '',
-      name: json['name'] ?? 'Favori',
-      items: (json['items'] as List?)
-              ?.map((item) => FavoriteOrderItem.fromJson(item))
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? 'Favori',
+      items: (json['items'] as List<dynamic>?)
+              ?.whereType<Map<String, dynamic>>()
+              .map((item) => FavoriteOrderItem.fromJson(item))
               .toList() ??
           [],
       total: _parseDouble(json['total']),
-      orderCount: json['order_count'] ?? 0,
+      orderCount: (json['order_count'] as num?)?.toInt() ?? 0,
       lastOrderedAt: json['last_ordered_at'] != null
-          ? DateTime.tryParse(json['last_ordered_at'])
+          ? DateTime.tryParse(json['last_ordered_at'].toString())
           : null,
-      isAutoDetected: json['is_auto_detected'] ?? false,
-      createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
+      isAutoDetected: json['is_auto_detected'] == true,
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
     );
   }
 
@@ -76,9 +77,9 @@ class FavoriteOrderItem {
 
   factory FavoriteOrderItem.fromJson(Map<String, dynamic> json) {
     return FavoriteOrderItem(
-      productId: json['productId'] ?? json['product_id'] ?? '',
-      productName: json['productName'] ?? json['product_name'] ?? 'Produit',
-      quantity: json['quantity'] ?? 0,
+      productId: (json['productId'] ?? json['product_id'])?.toString() ?? '',
+      productName: (json['productName'] ?? json['product_name'])?.toString() ?? 'Produit',
+      quantity: (json['quantity'] as num?)?.toInt() ?? 0,
       unitPrice: _parseDouble(json['unitPrice'] ?? json['unit_price']),
     );
   }
@@ -114,9 +115,9 @@ class UserPreferences {
 
   factory UserPreferences.fromJson(Map<String, dynamic> json) {
     return UserPreferences(
-      favoriteOrdersEnabled: json['favorite_orders_enabled'] ?? true,
-      autoSuggestEnabled: json['auto_suggest_enabled'] ?? true,
-      minPatternCount: json['min_pattern_count'] ?? 3,
+      favoriteOrdersEnabled: json['favorite_orders_enabled'] != false,
+      autoSuggestEnabled: json['auto_suggest_enabled'] != false,
+      minPatternCount: (json['min_pattern_count'] as num?)?.toInt() ?? 3,
     );
   }
 

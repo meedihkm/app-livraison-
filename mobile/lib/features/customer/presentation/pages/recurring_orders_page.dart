@@ -28,7 +28,7 @@ class _RecurringOrdersPageState extends State<RecurringOrdersPage> {
       if (result['success'] == true && result['data'] != null) {
         setState(() {
           _recurringOrders = (result['data'] as List)
-              .map((e) => RecurringOrder.fromJson(e))
+              .map((e) => RecurringOrder.fromJson(e as Map<String, dynamic>))
               .toList();
         });
       }
@@ -209,7 +209,8 @@ class _RecurringOrdersPageState extends State<RecurringOrdersPage> {
                 Switch(
                   value: order.active,
                   onChanged: (_) => _toggleOrder(order),
-                  activeColor: Colors.deepPurple,
+                  trackColor: WidgetStateProperty.resolveWith((states) =>
+                    states.contains(WidgetState.selected) ? Colors.deepPurple : Colors.grey),
                 ),
               ],
             ),

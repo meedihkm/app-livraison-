@@ -122,6 +122,12 @@
       "languageVersion": "3.4"
     },
     {
+      "name": "code_assets",
+      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/code_assets-1.0.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
+    },
+    {
       "name": "code_builder",
       "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/code_builder-4.11.1",
       "packageUri": "lib/",
@@ -153,7 +159,7 @@
     },
     {
       "name": "cross_file",
-      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/cross_file-0.3.5+1",
+      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/cross_file-0.3.5+2",
       "packageUri": "lib/",
       "languageVersion": "3.8"
     },
@@ -177,7 +183,7 @@
     },
     {
       "name": "dart_style",
-      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/dart_style-3.1.4",
+      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/dart_style-3.1.5",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
@@ -392,6 +398,12 @@
       "languageVersion": "2.12"
     },
     {
+      "name": "hooks",
+      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/hooks-1.0.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
+    },
+    {
       "name": "http",
       "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/http-1.6.0",
       "packageUri": "lib/",
@@ -423,7 +435,7 @@
     },
     {
       "name": "image_picker_android",
-      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_android-0.8.13+10",
+      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_android-0.8.13+13",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
@@ -435,9 +447,9 @@
     },
     {
       "name": "image_picker_ios",
-      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_ios-0.8.13+3",
+      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/image_picker_ios-0.8.13+6",
       "packageUri": "lib/",
-      "languageVersion": "3.9"
+      "languageVersion": "3.10"
     },
     {
       "name": "image_picker_linux",
@@ -489,9 +501,9 @@
     },
     {
       "name": "json_annotation",
-      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/json_annotation-4.9.0",
+      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/json_annotation-4.10.0",
       "packageUri": "lib/",
-      "languageVersion": "3.0"
+      "languageVersion": "3.9"
     },
     {
       "name": "latlong2",
@@ -584,6 +596,12 @@
       "languageVersion": "2.12"
     },
     {
+      "name": "native_toolchain_c",
+      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/native_toolchain_c-0.17.4",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
+    },
+    {
       "name": "nested",
       "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/nested-1.0.0",
       "packageUri": "lib/",
@@ -596,6 +614,12 @@
       "languageVersion": "2.12"
     },
     {
+      "name": "objective_c",
+      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/objective_c-9.2.5",
+      "packageUri": "lib/",
+      "languageVersion": "3.10"
+    },
+    {
       "name": "octo_image",
       "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/octo_image-2.1.0",
       "packageUri": "lib/",
@@ -603,7 +627,7 @@
     },
     {
       "name": "onesignal_flutter",
-      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/onesignal_flutter-5.3.5",
+      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/onesignal_flutter-5.4.0",
       "packageUri": "lib/",
       "languageVersion": "2.12"
     },
@@ -651,9 +675,9 @@
     },
     {
       "name": "path_provider_foundation",
-      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/path_provider_foundation-2.5.1",
+      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/path_provider_foundation-2.6.0",
       "packageUri": "lib/",
-      "languageVersion": "3.9"
+      "languageVersion": "3.10"
     },
     {
       "name": "path_provider_linux",
@@ -783,7 +807,7 @@
     },
     {
       "name": "shared_preferences_android",
-      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/shared_preferences_android-2.4.18",
+      "rootUri": "file:///C:/Users/hkm/AppData/Local/Pub/Cache/hosted/pub.dev/shared_preferences_android-2.4.20",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },

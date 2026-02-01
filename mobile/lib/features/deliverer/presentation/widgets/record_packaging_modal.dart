@@ -54,7 +54,7 @@ class _RecordPackagingModalState extends State<RecordPackagingModal> {
       if (result['success'] == true && result['data'] != null) {
         setState(() {
           _packagingTypes = (result['data'] as List)
-              .map((e) => PackagingType.fromJson(e))
+              .map((e) => PackagingType.fromJson(e as Map<String, dynamic>))
               .toList();
           _isLoadingTypes = false;
         });

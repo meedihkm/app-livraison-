@@ -46,7 +46,7 @@ class _KitchenDetailPageState extends State<KitchenDetailPage> {
   }
 
   Future<void> _callKitchen() async {
-    final phone = widget.kitchen['phone'];
+    final phone = widget.kitchen['phone'] as String?;
     if (phone != null && phone.isNotEmpty) {
       final uri = Uri.parse('tel:$phone');
       if (await canLaunchUrl(uri)) {
@@ -79,7 +79,7 @@ class _KitchenDetailPageState extends State<KitchenDetailPage> {
 
     if (confirm == true) {
       try {
-        await _apiService.toggleUser(widget.kitchen['id']);
+        await _apiService.toggleUser(widget.kitchen['id'] as String);
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -96,6 +96,9 @@ class _KitchenDetailPageState extends State<KitchenDetailPage> {
   Widget build(BuildContext context) {
     final kitchen = widget.kitchen;
     final isBlocked = kitchen['active'] == false;
+    final kitchenName = kitchen['name'] as String?;
+    final kitchenEmail = kitchen['email'] as String?;
+    final kitchenPhone = kitchen['phone'] as String?;
 
     return Scaffold(
       appBar: AppBar(
@@ -103,7 +106,7 @@ class _KitchenDetailPageState extends State<KitchenDetailPage> {
         backgroundColor: Color(0xFF2E7D32),
         foregroundColor: Colors.white,
         actions: [
-          if (kitchen['phone'] != null)
+          if (kitchenPhone != null)
             IconButton(icon: Icon(Icons.phone), onPressed: _callKitchen, tooltip: 'Appeler'),
           IconButton(
             icon: Icon(isBlocked ? Icons.lock : Icons.lock_open),
@@ -122,10 +125,10 @@ class _KitchenDetailPageState extends State<KitchenDetailPage> {
                 child: Column(
                   children: [
                     // Header
-                    _buildHeader(kitchen, isBlocked),
+                    _buildHeader(kitchen, isBlocked, kitchenName, kitchenEmail),
 
                     // Infos détaillées
-                    _buildInfoSection(kitchen),
+                    _buildInfoSection(kitchen, kitchenPhone, kitchenEmail),
 
                     // Stats
                     _buildStatsSection(),
@@ -136,7 +139,7 @@ class _KitchenDetailPageState extends State<KitchenDetailPage> {
     );
   }
 
-  Widget _buildHeader(Map<String, dynamic> kitchen, bool isBlocked) {
+  Widget _buildHeader(Map<String, dynamic> kitchen, bool isBlocked, String? kitchenName, String? kitchenEmail) {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(20),
@@ -157,7 +160,7 @@ class _KitchenDetailPageState extends State<KitchenDetailPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                kitchen['name'] ?? 'Atelier',
+                kitchenName ?? 'Atelier',
                 style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
               ),
               if (isBlocked) ...[
@@ -170,17 +173,18 @@ class _KitchenDetailPageState extends State<KitchenDetailPage> {
               ],
             ],
           ),
-          if (kitchen['email'] != null)
+          if (kitchenEmail != null)
             Padding(
               padding: EdgeInsets.only(top: 4),
-              child: Text(kitchen['email'], style: TextStyle(color: Colors.white70, fontSize: 14)),
+              child: Text(kitchenEmail, style: TextStyle(color: Colors.white70, fontSize: 14)),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoSection(Map<String, dynamic> kitchen) {
+  Widget _buildInfoSection(Map<String, dynamic> kitchen, String? kitchenPhone, String? kitchenEmail) {
+    final createdAt = kitchen['createdAt'] as String? ?? kitchen['created_at'] as String?;
     return Container(
       margin: EdgeInsets.all(16),
       padding: EdgeInsets.all(16),
@@ -196,17 +200,17 @@ class _KitchenDetailPageState extends State<KitchenDetailPage> {
           SizedBox(height: 16),
 
           // Téléphone
-          _buildInfoRow(Icons.phone, 'Téléphone', kitchen['phone'] ?? 'Non renseigné',
-              onTap: kitchen['phone'] != null ? _callKitchen : null),
+          _buildInfoRow(Icons.phone, 'Téléphone', kitchenPhone ?? 'Non renseigné',
+              onTap: kitchenPhone != null ? _callKitchen : null),
           Divider(height: 24),
 
           // Email
-          _buildInfoRow(Icons.email, 'Email', kitchen['email'] ?? 'Non renseigné'),
+          _buildInfoRow(Icons.email, 'Email', kitchenEmail ?? 'Non renseigné'),
           Divider(height: 24),
 
           // Date d'inscription
           _buildInfoRow(
-              Icons.calendar_today, 'Membre depuis', _formatDate(kitchen['createdAt'] ?? kitchen['created_at'])),
+              Icons.calendar_today, 'Membre depuis', _formatDate(createdAt)),
         ],
       ),
     );

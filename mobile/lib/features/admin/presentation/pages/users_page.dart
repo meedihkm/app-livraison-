@@ -37,9 +37,9 @@ class _UsersPageState extends State<UsersPage> {
   Future<void> _loadUsers() async {
     try {
       final response = await _apiService.getUsers();
-      if (response['success']) {
+      if (response['success'] == true) {
         setState(() {
-          _users = response['data'];
+          _users = response['data'] as List<dynamic>;
           _isLoading = false;
         });
       }
@@ -441,35 +441,35 @@ class _UsersPageState extends State<UsersPage> {
           padding: EdgeInsets.all(16),
           itemCount: _users.length,
           itemBuilder: (context, index) {
-            final user = _users[index];
+            final user = _users[index] as Map<String, dynamic>;
             return Card(
               margin: EdgeInsets.only(bottom: 12),
               child: ListTile(
                 onTap: () => _openUserDetail(user),
                 leading: CircleAvatar(
-                  backgroundColor: _getRoleColor(user['role']),
+                  backgroundColor: _getRoleColor(user['role'] as String),
                   child: Icon(
-                    _getRoleIcon(user['role']),
+                    _getRoleIcon(user['role'] as String),
                     color: Colors.white,
                   ),
                 ),
-                title: Text(user['name']),
+                title: Text(user['name'] as String),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(user['email']),
-                    Text(_getRoleText(user['role'])),
-                    if (user['phone'] != null && user['phone'].isNotEmpty) Text(user['phone']),
+                    Text(user['email'] as String),
+                    Text(_getRoleText(user['role'] as String)),
+                    if (user['phone'] != null && (user['phone'] as String).isNotEmpty) Text(user['phone'] as String),
                   ],
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Switch(
-                      value: user['active'] ?? true,
+                      value: (user['active'] as bool?) ?? true,
                       onChanged: (value) async {
                         try {
-                          await _apiService.toggleUser(user['id']);
+                          await _apiService.toggleUser(user['id'] as String);
                           _loadUsers();
                         } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -553,7 +553,7 @@ class _UsersPageState extends State<UsersPage> {
 
     if (confirm == true) {
       try {
-        final response = await _apiService.deleteUser(user['id']);
+        final response = await _apiService.deleteUser(user['id'] as String);
         _loadUsers();
         final message =
             response['deactivated'] == true ? 'Utilisateur désactivé (commandes existantes)' : 'Utilisateur supprimé';

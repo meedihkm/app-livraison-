@@ -6,13 +6,22 @@ import '../storage/secure_storage.dart';
 import '../constants/api_constants.dart';
 import '../models/notification_model.dart';
 
-class NotificationService {
+class NotificationService extends ChangeNotifier {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
 
   final SecureStorage _storage = SecureStorage();
   static const String appId = "YOUR_ONESIGNAL_APP_ID";
+
+  // Propriétés synchrones pour le panel de notifications
+  List<AppNotification> _notifications = [];
+  int _unreadCount = 0;
+  bool _isLoading = false;
+
+  List<AppNotification> get notifications => _notifications;
+  int get unreadCount => _unreadCount;
+  bool get isLoading => _isLoading;
 
   Future<Map<String, String>> _getHeaders() async {
     final token = await _storage.getToken();
@@ -23,7 +32,62 @@ class NotificationService {
   }
 
   // ============================================
-  // 1. Récupérer les notifications
+  // 1. Charger les notifications (sync + notify)
+  // ============================================
+  Future<void> loadNotifications({int limit = 50, bool unreadOnly = false}) async {
+    _isLoading = true;
+    notifyListeners();
+    
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/notifications?limit=$limit&unreadOnly=$unreadOnly'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final result = json.decode(response.body) as Map<String, dynamic>;
+        final data = result['data'];
+        if (data is List<dynamic>) {
+          _notifications = data
+              .whereType<Map<String, dynamic>>()
+              .map((json) => AppNotification.fromJson(json))
+              .toList();
+        }
+      }
+    } catch (e) {
+      // Silencieux pour ne pas bloquer l'UI
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ============================================
+  // 2. Récupérer le compteur non lues
+  // ============================================
+  Future<void> loadUnreadCount() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/notifications/unread-count'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final result = json.decode(response.body) as Map<String, dynamic>;
+        final data = result['data'] as Map<String, dynamic>?;
+        _unreadCount = (data?['count'] as int?) ?? 0;
+        notifyListeners();
+      }
+    } catch (e) {
+      _unreadCount = 0;
+      notifyListeners();
+    }
+  }
+
+  // ============================================
+  // 3. Récupérer les notifications (API)
   // ============================================
   Future<Map<String, dynamic>> getNotifications({
     int limit = 50,
@@ -37,7 +101,7 @@ class NotificationService {
       );
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        return json.decode(response.body) as Map<String, dynamic>;
       } else {
         throw Exception('Erreur ${response.statusCode}');
       }
@@ -48,7 +112,7 @@ class NotificationService {
   }
 
   // ============================================
-  // 2. Compteur non lues
+  // 4. Compteur non lues (API)
   // ============================================
   Future<int> getUnreadCount() async {
     try {
@@ -59,8 +123,8 @@ class NotificationService {
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['data']['count'] ?? 0;
+        final result = json.decode(response.body) as Map<String, dynamic>;
+        return (result['data'] as Map<String, dynamic>?)?['count'] as int? ?? 0;
       }
       return 0;
     } catch (e) {
@@ -69,7 +133,7 @@ class NotificationService {
   }
 
   // ============================================
-  // 3. Marquer comme lue
+  // 5. Marquer comme lue
   // ============================================
   Future<Map<String, dynamic>> markAsRead(String id) async {
     try {
@@ -80,7 +144,25 @@ class NotificationService {
       );
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        // Mettre à jour localement
+        final index = _notifications.indexWhere((n) => n.id == id);
+        if (index != -1) {
+          _notifications[index] = AppNotification(
+            id: _notifications[index].id,
+            type: _notifications[index].type,
+            title: _notifications[index].title,
+            message: _notifications[index].message,
+            data: _notifications[index].data,
+            isRead: true,
+            priority: _notifications[index].priority,
+            actionUrl: _notifications[index].actionUrl,
+            createdAt: _notifications[index].createdAt,
+            readAt: DateTime.now(),
+          );
+          _unreadCount = (_unreadCount - 1).clamp(0, _unreadCount);
+          notifyListeners();
+        }
+        return json.decode(response.body) as Map<String, dynamic>;
       } else {
         throw Exception('Erreur ${response.statusCode}');
       }
@@ -90,7 +172,7 @@ class NotificationService {
   }
 
   // ============================================
-  // 4. Tout marquer comme lu
+  // 6. Tout marquer comme lu
   // ============================================
   Future<Map<String, dynamic>> markAllAsRead() async {
     try {
@@ -101,7 +183,22 @@ class NotificationService {
       );
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        // Mettre à jour localement
+        _notifications = _notifications.map((n) => AppNotification(
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          data: n.data,
+          isRead: true,
+          priority: n.priority,
+          actionUrl: n.actionUrl,
+          createdAt: n.createdAt,
+          readAt: DateTime.now(),
+        )).toList();
+        _unreadCount = 0;
+        notifyListeners();
+        return json.decode(response.body) as Map<String, dynamic>;
       } else {
         throw Exception('Erreur ${response.statusCode}');
       }
@@ -111,7 +208,7 @@ class NotificationService {
   }
 
   // ============================================
-  // 5. Supprimer une notification
+  // 7. Supprimer une notification
   // ============================================
   Future<Map<String, dynamic>> deleteNotification(String id) async {
     try {
@@ -122,7 +219,14 @@ class NotificationService {
       );
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        // Mettre à jour localement
+        final wasUnread = _notifications.firstWhere((n) => n.id == id, orElse: () => _notifications.first).isRead == false;
+        _notifications.removeWhere((n) => n.id == id);
+        if (wasUnread && _unreadCount > 0) {
+          _unreadCount--;
+        }
+        notifyListeners();
+        return json.decode(response.body) as Map<String, dynamic>;
       } else {
         throw Exception('Erreur ${response.statusCode}');
       }
@@ -132,7 +236,7 @@ class NotificationService {
   }
 
   // ============================================
-  // 6. Récupérer préférences
+  // 8. Récupérer préférences
   // ============================================
   Future<Map<String, dynamic>> getPreferences() async {
     try {
@@ -143,7 +247,7 @@ class NotificationService {
       );
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        return json.decode(response.body) as Map<String, dynamic>;
       } else {
         throw Exception('Erreur ${response.statusCode}');
       }
@@ -153,7 +257,7 @@ class NotificationService {
   }
 
   // ============================================
-  // 7. Mettre à jour préférences
+  // 9. Mettre à jour préférences
   // ============================================
   Future<Map<String, dynamic>> updatePreferences({
     bool? paymentNotifications,
@@ -179,7 +283,7 @@ class NotificationService {
       );
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        return json.decode(response.body) as Map<String, dynamic>;
       } else {
         throw Exception('Erreur ${response.statusCode}');
       }
@@ -189,7 +293,7 @@ class NotificationService {
   }
 
   // ============================================
-  // 8. Envoyer rappels dette (Admin)
+  // 10. Envoyer rappels dette (Admin)
   // ============================================
   Future<Map<String, dynamic>> sendDebtReminders() async {
     try {
@@ -200,7 +304,7 @@ class NotificationService {
       );
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        return json.decode(response.body) as Map<String, dynamic>;
       } else {
         throw Exception('Erreur ${response.statusCode}');
       }
@@ -210,7 +314,7 @@ class NotificationService {
   }
 
   // ============================================
-  // 9. Statistiques (Admin)
+  // 11. Statistiques (Admin)
   // ============================================
   Future<Map<String, dynamic>> getStats() async {
     try {
@@ -221,7 +325,7 @@ class NotificationService {
       );
 
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        return json.decode(response.body) as Map<String, dynamic>;
       } else {
         throw Exception('Erreur ${response.statusCode}');
       }

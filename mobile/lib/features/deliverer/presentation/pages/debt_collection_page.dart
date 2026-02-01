@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../core/services/api_service.dart';
+// import '../../../../core/services/api_service.dart';
 import '../../../../core/services/financial_service.dart';
 
 class DebtCollectionPage extends StatefulWidget {
@@ -12,7 +12,7 @@ class DebtCollectionPage extends StatefulWidget {
 }
 
 class _DebtCollectionPageState extends State<DebtCollectionPage> {
-  final ApiService _apiService = ApiService();
+
   final FinancialService _financialService = FinancialService();
 
   List<dynamic> _clientsWithDebts = [];
@@ -287,7 +287,7 @@ class _DebtCollectionPageState extends State<DebtCollectionPage> {
                         backgroundColor: Colors.red.withValues(alpha: 0.1),
                         child: Icon(Icons.warning_amber, color: Colors.red),
                       ),
-                      title: Text(client['name'] ?? 'Client', style: TextStyle(fontWeight: FontWeight.w600)),
+                      title: Text((client['name'] as String?) ?? 'Client', style: TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Text('${client['order_count'] ?? 0} commande(s) impayée(s)'),
                       trailing: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -311,7 +311,7 @@ class _DebtCollectionPageState extends State<DebtCollectionPage> {
                           ),
                         ],
                       ),
-                      onTap: () => _showCollectDebtDialog(client),
+                      onTap: () => _showCollectDebtDialog(client as Map<String, dynamic>),
                     ),
                   ))),
 
@@ -349,7 +349,7 @@ class _DebtCollectionPageState extends State<DebtCollectionPage> {
               )
             else
               ...(_myCollections.map((collection) {
-                final date = DateTime.tryParse(collection['created_at'] ?? '');
+                final date = DateTime.tryParse((collection['created_at'] as String?) ?? '');
                 final isToday = date != null &&
                     date.year == DateTime.now().year &&
                     date.month == DateTime.now().month &&
@@ -365,7 +365,7 @@ class _DebtCollectionPageState extends State<DebtCollectionPage> {
                       backgroundColor: Colors.green.withValues(alpha: 0.1),
                       child: Icon(Icons.check_circle, color: Colors.green),
                     ),
-                    title: Text(collection['client_name'] ?? 'Client', style: TextStyle(fontWeight: FontWeight.w600)),
+                    title: Text((collection['client_name'] as String?) ?? 'Client', style: TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text(
                       '${date.hour}:${date.minute.toString().padLeft(2, '0')}',
                       style: TextStyle(fontSize: 12),

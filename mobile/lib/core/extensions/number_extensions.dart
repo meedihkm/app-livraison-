@@ -87,12 +87,28 @@ extension DynamicListParsing on List<dynamic>? {
 extension JsonParsing on Map<String, dynamic> {
   /// Récupère une valeur double d'un champ JSON
   double getDouble(String key, {double defaultValue = 0.0}) {
-    return this[key].toDoubleOrZero();
+    final value = this[key];
+    if (value == null) return defaultValue;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      final parsed = double.tryParse(value);
+      return parsed ?? defaultValue;
+    }
+    return defaultValue;
   }
 
   /// Récupère une valeur int d'un champ JSON
   int getInt(String key, {int defaultValue = 0}) {
-    return this[key].toIntOrZero();
+    final value = this[key];
+    if (value == null) return defaultValue;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) {
+      final parsed = int.tryParse(value);
+      return parsed ?? defaultValue;
+    }
+    return defaultValue;
   }
 
   /// Récupère une valeur String d'un champ JSON
@@ -106,7 +122,13 @@ extension JsonParsing on Map<String, dynamic> {
   bool getBool(String key, {bool defaultValue = false}) {
     final value = this[key];
     if (value == null) return defaultValue;
-    return value.toBool();
+    if (value is bool) return value;
+    if (value is int) return value != 0;
+    if (value is String) {
+      final str = value.toLowerCase();
+      return str == 'true' || str == '1' || str == 'yes';
+    }
+    return defaultValue;
   }
 
   /// Récupère une date depuis un champ ISO8601

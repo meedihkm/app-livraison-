@@ -27,7 +27,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       final response = await _api.getNotifications(unreadOnly: _showUnreadOnly);
       if (response['success'] == true && mounted) {
         setState(() {
-          _notifications = response['data'] ?? [];
+          _notifications = (response['data'] as List<dynamic>?) ?? [];
           _isLoading = false;
         });
       }
@@ -142,7 +142,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final unreadCount = _notifications.where((n) => n['is_read'] == false).length;
+    final unreadCount = _notifications.where((n) => n['is_read'] == true).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -213,12 +213,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     itemCount: _notifications.length,
                     itemBuilder: (context, index) {
                       final notification = _notifications[index];
-                      final isRead = notification['is_read'] ?? false;
-                      final type = notification['type'] ?? 'general';
+                      final isRead = (notification['is_read'] as bool?) ?? false;
+                      final type = (notification['type'] as String?) ?? 'general';
                       final color = _getNotificationColor(type);
 
                       return Dismissible(
-                        key: Key(notification['id']),
+                        key: Key(notification['id'].toString()),
                         direction: DismissDirection.endToStart,
                         background: Container(
                           alignment: Alignment.centerRight,
@@ -229,21 +229,21 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           ),
                           child: const Icon(Icons.delete, color: Colors.white),
                         ),
-                        onDismissed: (_) => _deleteNotification(notification['id']),
+                        onDismissed: (_) => _deleteNotification(notification['id'].toString()),
                         child: Card(
                           margin: const EdgeInsets.only(bottom: 8),
-                          elevation: isRead ? 1 : 3,
+                          elevation: isRead ? 1.0 : 3.0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: isRead
                                 ? BorderSide.none
                                 : BorderSide(
-                                    color: color.withOpacity(0.3),
+                                    color: color.withValues(alpha: 0.3),
                                     width: 2,
                                   ),
                           ),
                           child: InkWell(
-                            onTap: () => _markAsRead(notification['id'], isRead),
+                            onTap: () => _markAsRead(notification['id'].toString(), isRead),
                             borderRadius: BorderRadius.circular(12),
                             child: Padding(
                               padding: const EdgeInsets.all(16),
@@ -255,12 +255,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                     width: 48,
                                     height: 48,
                                     decoration: BoxDecoration(
-                                      color: color.withOpacity(0.1),
+                                      color: color.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Center(
                                       child: Icon(
-                                        _getNotificationIcon(type),
+                                        _getNotificationIcon(type.toString()),
                                         color: color,
                                         size: 24,
                                       ),
@@ -277,14 +277,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                           children: [
                                             Expanded(
                                               child: Text(
-                                                notification['title'] ?? 'Notification',
+                                                (notification['title'] as String?) ?? 'Notification',
                                                 style: TextStyle(
-                                                  fontWeight: isRead ? FontWeight.w500 : FontWeight.bold,
+                                                  fontWeight: isRead == true ? FontWeight.w500 : FontWeight.bold,
                                                   fontSize: 15,
                                                 ),
                                               ),
                                             ),
-                                            if (!isRead)
+                                            if (isRead == false)
                                               Container(
                                                 width: 8,
                                                 height: 8,
@@ -297,7 +297,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          notification['message'] ?? '',
+                                          (notification['message'] as String?) ?? '',
                                           style: TextStyle(
                                             color: Colors.grey[700],
                                             fontSize: 14,
@@ -305,7 +305,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                         ),
                                         const SizedBox(height: 8),
                                         Text(
-                                          _formatDate(notification['created_at'] ?? ''),
+                                          _formatDate((notification['created_at'] as String?) ?? ''),
                                           style: TextStyle(
                                             color: Colors.grey[500],
                                             fontSize: 12,

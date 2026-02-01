@@ -38,7 +38,7 @@ class _DeliveryDetailPageState extends State<DeliveryDetailPage> {
     if (widget.delivery.order.cafeteria?.id != null) {
       try {
         final debt = await _apiService.getCustomerDebt(widget.delivery.order.cafeteria!.id);
-        if (mounted) setState(() => _customerDebt = debt);
+        if (mounted) setState(() => _customerDebt = CustomerDebt.fromJson(debt));
       } catch (e) {
         // Ignorer erreur silencieusement ou logger
       }
@@ -52,7 +52,7 @@ class _DeliveryDetailPageState extends State<DeliveryDetailPage> {
         if (result['success'] == true && result['data'] != null && mounted) {
           setState(() {
             _packagingBalance = (result['data'] as List)
-                .map((e) => PackagingBalance.fromJson(e))
+                .map((e) => PackagingBalance.fromJson(e as Map<String, dynamic>))
                 .toList();
           });
         }

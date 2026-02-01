@@ -3,9 +3,8 @@
 // Exporte tous les composants du module finance
 // =====================================================
 
-// Models (depuis core)
+// Models (depuis core) - utilise uniquement financial_models.dart
 export '../../core/models/financial_models.dart';
-export '../../core/models/debt_model.dart';
 
 // Services (depuis core)
 export '../../core/services/financial_service_v2.dart';

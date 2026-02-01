@@ -14,24 +14,24 @@ class HiveService {
     await Hive.initFlutter();
     
     // Ouvrir les boîtes
-    await Hive.openBox(boxAuth);
-    await Hive.openBox(boxData);
-    await Hive.openBox(boxSync);
+    await Hive.openBox<dynamic>(boxAuth);
+    await Hive.openBox<dynamic>(boxData);
+    await Hive.openBox<dynamic>(boxSync);
   }
 
   // Generic Data Cache (storing API responses)
   Future<void> cacheData(String key, dynamic data) async {
-    final box = Hive.box(boxData);
-    await box.put(key, {
+    final box = Hive.box<dynamic>(boxData);
+    await box.put(key, <String, dynamic>{
       'timestamp': DateTime.now().toIso8601String(),
       'data': data,
     });
   }
 
   dynamic getCachedData(String key) {
-    final box = Hive.box(boxData);
+    final box = Hive.box<dynamic>(boxData);
     final entry = box.get(key);
-    if (entry != null) {
+    if (entry is Map<dynamic, dynamic>) {
       return entry['data'];
     }
     return null;
@@ -39,8 +39,8 @@ class HiveService {
 
   // Sync Queue (Offline Actions)
   Future<void> addOfflineAction(String type, Map<String, dynamic> payload) async {
-    final box = Hive.box(boxSync);
-    final action = {
+    final box = Hive.box<dynamic>(boxSync);
+    final action = <String, dynamic>{
       'id': DateTime.now().millisecondsSinceEpoch.toString(),
       'type': type,
       'payload': payload,
@@ -50,38 +50,38 @@ class HiveService {
   }
 
   List<Map<String, dynamic>> getPendingActions() {
-    final box = Hive.box(boxSync);
-    return box.values.cast<Map<String, dynamic>>().toList();
+    final box = Hive.box<dynamic>(boxSync);
+    return box.values.whereType<Map<dynamic, dynamic>>().map((e) => e.cast<String, dynamic>()).toList();
   }
   
   Map<dynamic, Map<dynamic, dynamic>> getPendingActionsMap() {
-    final box = Hive.box(boxSync);
-    return box.toMap().cast<dynamic, Map<dynamic, dynamic>>();
+    final box = Hive.box<dynamic>(boxSync);
+    return box.toMap().map((k, v) => MapEntry(k, v is Map<dynamic, dynamic> ? v : <dynamic, dynamic>{}));
   }
 
   Future<int> getPendingActionsCount() async {
-    final box = Hive.box(boxSync);
+    final box = Hive.box<dynamic>(boxSync);
     return box.length;
   }
 
   Future<void> removeAction(int index) async {
-    final box = Hive.box(boxSync);
+    final box = Hive.box<dynamic>(boxSync);
     await box.deleteAt(index);
   }
   
   Future<void> deleteActionByKey(dynamic key) async {
-    final box = Hive.box(boxSync);
+    final box = Hive.box<dynamic>(boxSync);
     await box.delete(key);
   }
 
   Future<void> updateAction(dynamic key, Map<String, dynamic> action) async {
-    final box = Hive.box(boxSync);
+    final box = Hive.box<dynamic>(boxSync);
     await box.put(key, action);
   }
 
   Future<void> clearAllData() async {
-    await Hive.box(boxData).clear();
-    await Hive.box(boxSync).clear();
+    await Hive.box<dynamic>(boxData).clear();
+    await Hive.box<dynamic>(boxSync).clear();
     // Don't clear auth usually
   }
 }

@@ -46,7 +46,7 @@ class SecureStorage {
   Future<Map<String, dynamic>?> getUser() async {
     final userData = await _storage.read(key: 'user_data');
     if (userData != null) {
-      return json.decode(userData);
+      return json.decode(userData) as Map<String, dynamic>?;
     }
     return null;
   }

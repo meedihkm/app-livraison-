@@ -22,12 +22,14 @@ class User {
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id']?.toString() ?? '',
-      email: json['email'] ?? '',
-      name: json['name'] ?? '',
-      role: json['role'] ?? '',
+      email: json['email']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      role: json['role']?.toString() ?? '',
       organizationId: json['organizationId']?.toString() ?? '',
-      organization: Organization.fromJson(json['organization'] ?? {}),
-      phone: json['phone'],
+      organization: json['organization'] is Map<String, dynamic>
+          ? Organization.fromJson(json['organization'] as Map<String, dynamic>)
+          : Organization(id: '', name: '', type: ''),
+      phone: json['phone']?.toString(),
       creditLimit: (json['credit_limit'] as num?)?.toDouble(),
     );
   }
@@ -64,8 +66,8 @@ class Organization {
   factory Organization.fromJson(Map<String, dynamic> json) {
     return Organization(
       id: json['id']?.toString() ?? '',
-      name: json['name'] ?? '',
-      type: json['type'] ?? '',
+      name: json['name']?.toString() ?? '',
+      type: json['type']?.toString() ?? '',
     );
   }
 
