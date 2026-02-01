@@ -253,7 +253,7 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
                     ],
                   ),
                 ),
-                ...entry.value.map((order) => _buildOrderCard(order)),
+                ...entry.value.map(_buildOrderCard),
                 SizedBox(height: 16),
               ],
             );

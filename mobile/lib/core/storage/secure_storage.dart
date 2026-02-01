@@ -18,7 +18,7 @@ class SecureStorage {
   }
 
   Future<String?> getToken() async {
-    return await _storage.read(key: 'auth_token');
+    return _storage.read(key: 'auth_token');
   }
 
   Future<void> deleteToken() async {
@@ -31,7 +31,7 @@ class SecureStorage {
   }
 
   Future<String?> getRefreshToken() async {
-    return await _storage.read(key: 'refresh_token');
+    return _storage.read(key: 'refresh_token');
   }
 
   Future<void> deleteRefreshToken() async {
@@ -72,6 +72,6 @@ class SecureStorage {
   }
 
   Future<String?> read(String key) async {
-    return await _storage.read(key: key);
+    return _storage.read(key: key);
   }
 }

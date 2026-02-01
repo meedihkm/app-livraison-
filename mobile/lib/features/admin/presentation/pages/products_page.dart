@@ -367,7 +367,7 @@ class _ProductsPageState extends State<ProductsPage> {
         SizedBox(height: 16),
         Text('Aucun produit', style: TextStyle(fontSize: 18, color: Colors.grey[600])),
         SizedBox(height: 24),
-        ElevatedButton.icon(onPressed: () => _showProductDialog(), icon: Icon(Icons.add), label: Text('Ajouter un produit')),
+        ElevatedButton.icon(onPressed: _showProductDialog, icon: Icon(Icons.add), label: Text('Ajouter un produit')),
       ]));
     }
     
@@ -438,7 +438,7 @@ class _ProductsPageState extends State<ProductsPage> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showProductDialog(), 
+        onPressed: _showProductDialog, 
         icon: Icon(Icons.add), 
         label: Text('Produit'), 
         backgroundColor: Colors.blue,
@@ -662,16 +662,17 @@ class _ProductsPageState extends State<ProductsPage> {
   Widget _buildProductActions(Product product) {
     return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
       // Prix avec promo - Taille augmentée
-      product.isPromo && product.promoPrice != null
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('${product.price.toStringAsFixed(0)} DA', style: TextStyle(color: Colors.grey, fontSize: 13, decoration: TextDecoration.lineThrough)),
-                Text('${product.promoPrice!.toStringAsFixed(0)} DA', style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.bold, fontSize: 18)),
-              ],
-            )
-          : Text('${product.price.toStringAsFixed(0)} DA', style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.bold, fontSize: 20)),
+      if (product.isPromo && product.promoPrice != null)
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('${product.price.toStringAsFixed(0)} DA', style: TextStyle(color: Colors.grey, fontSize: 13, decoration: TextDecoration.lineThrough)),
+            Text('${product.promoPrice!.toStringAsFixed(0)} DA', style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.bold, fontSize: 18)),
+          ],
+        )
+      else
+        Text('${product.price.toStringAsFixed(0)} DA', style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.bold, fontSize: 20)),
       Row(mainAxisSize: MainAxisSize.min, children: [
         GestureDetector(onTap: () async { await _apiService.toggleProduct(product.id); _loadProducts(); }, child: Icon(product.active ? Icons.visibility : Icons.visibility_off, color: product.active ? Colors.green : Colors.grey, size: 22)),
         SizedBox(width: 8),

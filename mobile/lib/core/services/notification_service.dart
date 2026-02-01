@@ -12,7 +12,7 @@ class NotificationService extends ChangeNotifier {
   NotificationService._internal();
 
   final SecureStorage _storage = SecureStorage();
-  static const String appId = "YOUR_ONESIGNAL_APP_ID";
+  static const String appId = 'YOUR_ONESIGNAL_APP_ID';
 
   // Propriétés synchrones pour le panel de notifications
   List<AppNotification> _notifications = [];
@@ -51,7 +51,7 @@ class NotificationService extends ChangeNotifier {
         if (data is List<dynamic>) {
           _notifications = data
               .whereType<Map<String, dynamic>>()
-              .map((json) => AppNotification.fromJson(json))
+              .map(AppNotification.fromJson)
               .toList();
         }
       }

@@ -458,7 +458,7 @@ class _NewOrderPageState extends State<NewOrderPage> {
     );
   }
 
-  void _loadFavoriteToCart(FavoriteOrder favorite) async {
+  Future<void> _loadFavoriteToCart(FavoriteOrder favorite) async {
     try {
       // Enregistrer l'utilisation
       await _favoriteService.useFavorite(favorite.id);
@@ -814,9 +814,9 @@ class _NewOrderPageState extends State<NewOrderPage> {
           ),
         ];
       case ViewMode.list:
-        return products.map((p) => _buildListCard(p)).toList();
+        return products.map(_buildListCard).toList();
       case ViewMode.compact:
-        return products.map((p) => _buildCompactCard(p)).toList();
+        return products.map(_buildCompactCard).toList();
     }
   }
 
@@ -1006,7 +1006,7 @@ class _NewOrderPageState extends State<NewOrderPage> {
           color: Colors.red,
           onPressed: quantity > 0 ? () => _updateQuantity(product.id, -1) : null,
         ),
-        Container(
+        SizedBox(
           width: 40,
           child: Text('$quantity', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ),
@@ -1035,7 +1035,7 @@ class _NewOrderPageState extends State<NewOrderPage> {
             child: Icon(Icons.remove, size: 16, color: quantity > 0 ? Colors.red : Colors.grey),
           ),
         ),
-        Container(
+        SizedBox(
           width: 32,
           child: Text('$quantity', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
         ),
@@ -1059,7 +1059,7 @@ class _NewOrderPageState extends State<NewOrderPage> {
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(8),
-        child: Container(
+        child: SizedBox(
           width: 36,
           height: 36,
           child: Icon(icon, color: onPressed != null ? color : Colors.grey, size: 20),

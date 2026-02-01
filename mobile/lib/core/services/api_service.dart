@@ -155,14 +155,18 @@ class ApiService {
         headers: await _getHeaders(),
         body: json.encode({'refreshToken': refreshToken}),
       );
-    } catch (e) {}
+    } catch (e) {
+      // Ignorer l'erreur lors du logout
+    }
     await _storage.clearAll();
   }
 
   Future<void> logoutAllDevices() async {
     try {
       await _request('POST', '${ApiConstants.baseUrl}/auth/logout-all');
-    } catch (e) {}
+    } catch (e) {
+      // Ignorer l'erreur lors du logout de tous les appareils
+    }
     await _storage.clearAll();
   }
 

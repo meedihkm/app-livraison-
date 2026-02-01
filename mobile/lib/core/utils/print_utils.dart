@@ -43,7 +43,7 @@ class PrintService {
           dateTo,
           organizationName,
         ),
-        footer: (context) => _buildReportFooter(context),
+        footer: _buildReportFooter,
         build: (context) => [
           _buildSummarySection(overview.summary),
           pw.SizedBox(height: 20),
@@ -137,7 +137,7 @@ class PrintService {
           dateTo,
           null,
         ),
-        footer: (context) => _buildReportFooter(context),
+        footer: _buildReportFooter,
         build: (context) => [
           _buildDelivererStatsTable(stats),
         ],

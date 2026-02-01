@@ -43,7 +43,7 @@ class ImageService {
       
       if (image == null) return null;
       
-      return await _compressAndEncode(File(image.path));
+      return _compressAndEncode(File(image.path));
     } catch (e) {
       print('Error picking image: $e');
       return null;
@@ -81,7 +81,7 @@ class ImageService {
 
   /// Afficher un dialog pour choisir la source de l'image
   Future<String?> showImageSourceDialog(BuildContext context) async {
-    return await showDialog<String>(
+    return showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Ajouter une photo'),

@@ -73,7 +73,7 @@ class CacheService {
   }
 
   Future<List<dynamic>?> getCachedProducts() async {
-    return await getCache<List<dynamic>>('cache_products');
+    return getCache<List<dynamic>>('cache_products');
   }
 
   // Utilisateurs/Clients (cache moyen)
@@ -82,7 +82,7 @@ class CacheService {
   }
 
   Future<List<dynamic>?> getCachedUsers() async {
-    return await getCache<List<dynamic>>('cache_users');
+    return getCache<List<dynamic>>('cache_users');
   }
 
   // Commandes (cache court - changent souvent)
@@ -91,7 +91,7 @@ class CacheService {
   }
 
   Future<List<dynamic>?> getCachedOrders() async {
-    return await getCache<List<dynamic>>('cache_orders');
+    return getCache<List<dynamic>>('cache_orders');
   }
 
   // Livraisons (cache court)
@@ -100,7 +100,7 @@ class CacheService {
   }
 
   Future<List<dynamic>?> getCachedDeliveries() async {
-    return await getCache<List<dynamic>>('cache_deliveries');
+    return getCache<List<dynamic>>('cache_deliveries');
   }
 
   // Dettes (cache moyen)
@@ -109,7 +109,7 @@ class CacheService {
   }
 
   Future<List<dynamic>?> getCachedDebts() async {
-    return await getCache<List<dynamic>>('cache_debts');
+    return getCache<List<dynamic>>('cache_debts');
   }
 
   // Stats financières par période
@@ -118,7 +118,7 @@ class CacheService {
   }
 
   Future<Map<String, dynamic>?> getCachedFinancialStats(String period) async {
-    return await getCache<Map<String, dynamic>>('cache_financial_$period');
+    return getCache<Map<String, dynamic>>('cache_financial_$period');
   }
 
   // Stats par livreur
@@ -127,7 +127,7 @@ class CacheService {
   }
 
   Future<List<dynamic>?> getCachedDelivererStats() async {
-    return await getCache<List<dynamic>>('cache_deliverer_stats');
+    return getCache<List<dynamic>>('cache_deliverer_stats');
   }
 
   // Historique client
@@ -136,7 +136,7 @@ class CacheService {
   }
 
   Future<List<dynamic>?> getCachedClientHistory(String clientId) async {
-    return await getCache<List<dynamic>>('cache_client_history_$clientId');
+    return getCache<List<dynamic>>('cache_client_history_$clientId');
   }
 
   // ===== UTILITAIRES =====

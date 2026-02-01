@@ -55,7 +55,7 @@ class SettingsService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setAutoBlockOnDebt(bool value) async {
+  Future<void> setAutoBlockOnDebt({required bool value}) async {
     _autoBlockOnDebt = value;
     await _storage.write('auto_block_on_debt', value.toString());
     notifyListeners();
@@ -67,7 +67,7 @@ class SettingsService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> setKitchenMode(bool value) async {
+  Future<bool> setKitchenMode({required bool value}) async {
     try {
       await _apiService.updateOrganizationSettings({'kitchenMode': value});
       _kitchenMode = value;

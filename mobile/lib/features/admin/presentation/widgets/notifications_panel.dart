@@ -35,7 +35,7 @@ class NotificationsPanel extends StatelessWidget {
                     Spacer(),
                     if (notificationService.unreadCount > 0)
                       TextButton(
-                        onPressed: () => notificationService.markAllAsRead(),
+                        onPressed: notificationService.markAllAsRead,
                         child: Text('Tout lire'),
                       ),
                   ],

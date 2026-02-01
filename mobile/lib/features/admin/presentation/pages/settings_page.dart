@@ -63,7 +63,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 subtitle: 'Ajoute un workflow de préparation avec un terminal dédié pour l\'atelier',
                 value: _settings.kitchenMode,
                 onChanged: (v) async {
-                  final success = await _settings.setKitchenMode(v);
+                  final success = await _settings.setKitchenMode(value: v);
                   if (success) {
                     setState(() {});
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -136,7 +136,7 @@ class _SettingsPageState extends State<SettingsPage> {
                            if (mode == ThemeMode.system) {
                              themeProvider.setSystemTheme();
                            } else {
-                             themeProvider.toggleTheme(mode == ThemeMode.dark);
+                             themeProvider.toggleTheme(isDark: mode == ThemeMode.dark);
                            }
                          },
                        ),
@@ -156,14 +156,14 @@ class _SettingsPageState extends State<SettingsPage> {
                 label: 'Seuil d\'alerte dette (DA)',
                 hint: 'Alerte si dette dépasse ce montant',
                 controller: _debtAlertController,
-                onSave: (v) => _settings.setDebtAlertThreshold(v),
+                onSave: _settings.setDebtAlertThreshold,
               ),
               Divider(height: 24),
               _buildNumberField(
                 label: 'Seuil de blocage dette (DA)',
                 hint: 'Bloquer client si dette dépasse ce montant',
                 controller: _debtBlockController,
-                onSave: (v) => _settings.setDebtBlockThreshold(v),
+                onSave: _settings.setDebtBlockThreshold,
               ),
               Divider(height: 24),
               _buildSwitchField(
@@ -171,7 +171,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 subtitle: 'Bloquer automatiquement les clients dépassant le seuil',
                 value: _settings.autoBlockOnDebt,
                 onChanged: (v) {
-                  _settings.setAutoBlockOnDebt(v);
+                  _settings.setAutoBlockOnDebt(value: v);
                   setState(() {});
                 },
               ),
@@ -187,7 +187,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 label: 'Taux TVA (%)',
                 hint: 'Taux de TVA pour les factures',
                 controller: _tvaController,
-                onSave: (v) => _settings.setTvaRate(v),
+                onSave: _settings.setTvaRate,
               ),
             ]),
 
@@ -271,7 +271,7 @@ class _SettingsPageState extends State<SettingsPage> {
     required String label,
     required String hint,
     required TextEditingController controller,
-    required Function(double) onSave,
+    required ValueChanged<double> onSave,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,7 +318,7 @@ class _SettingsPageState extends State<SettingsPage> {
     required String label,
     required String subtitle,
     required bool value,
-    required Function(bool) onChanged,
+    required ValueChanged<bool> onChanged,
   }) {
     return Row(
       children: [

@@ -349,7 +349,7 @@ class _DeliverersMapPageState extends State<DeliverersMapPage> {
       appBar: AppBar(
         title: Text(isAdmin ? 'Carte Globale' : 'Mon Itinéraire'),
         actions: [
-          IconButton(icon: Icon(Icons.refresh), onPressed: () => _refreshData()),
+          IconButton(icon: Icon(Icons.refresh), onPressed: _refreshData),
         ],
       ),
       body: Stack(
@@ -431,16 +431,16 @@ class _DeliverersMapPageState extends State<DeliverersMapPage> {
                   heroTag: 'layer',
                   onPressed: () => setState(() => _isSatellite = !_isSatellite),
                   backgroundColor: Colors.white,
-                  child: Icon(_isSatellite ? Icons.map : Icons.satellite_alt, color: Colors.blue),
                   tooltip: _isSatellite ? 'Mode Plan' : 'Mode Satellite',
+                  child: Icon(_isSatellite ? Icons.map : Icons.satellite_alt, color: Colors.blue),
                 ),
                 SizedBox(height: 8),
                 FloatingActionButton.small(
                   heroTag: 'gps',
                   onPressed: _locateUser,
                   backgroundColor: Colors.white,
-                  child: Icon(Icons.my_location, color: Colors.blue),
                   tooltip: 'Ma position',
+                  child: Icon(Icons.my_location, color: Colors.blue),
                 ),
               ],
             ),
@@ -565,7 +565,7 @@ class _DeliverersMapPageState extends State<DeliverersMapPage> {
     );
   }
 
-  Widget _buildFilterChip(String label, bool value, Color color, Function(bool) onChanged) {
+  Widget _buildFilterChip(String label, bool value, Color color, ValueChanged<bool> onChanged) {
     return FilterChip(
       label: Text(label),
       selected: value,

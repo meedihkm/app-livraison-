@@ -255,6 +255,6 @@ class FinancialServiceV2 {
   /// Calcule le taux de recouvrement
   double calculateCollectionRate(double collected, double total) {
     if (total <= 0) return 0.0;
-    return (collected / total);
+    return collected / total;
   }
 }

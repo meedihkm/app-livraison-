@@ -119,7 +119,7 @@ class _RecurringOrdersPageState extends State<RecurringOrdersPage> {
               ? _buildEmptyState()
               : _buildOrdersList(),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showForm(),
+        onPressed: _showForm,
         icon: Icon(Icons.add),
         label: Text('Nouvelle'),
         backgroundColor: Colors.deepPurple,
@@ -146,7 +146,7 @@ class _RecurringOrdersPageState extends State<RecurringOrdersPage> {
           ),
           SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: () => _showForm(),
+            onPressed: _showForm,
             icon: Icon(Icons.add),
             label: Text('Créer ma première récurrence'),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),

@@ -163,7 +163,7 @@ class _DeliveryRoutePageState extends State<DeliveryRoutePage> {
   }
 
   Widget _buildMap() {
-    if (_deliveries.isEmpty) return Center(child: Text("Aucune livraison à afficher"));
+    if (_deliveries.isEmpty) return const Center(child: Text('Aucune livraison à afficher'));
 
     // Filter valid locations
     final validDeliveries = _deliveries.where((d) => 
@@ -534,8 +534,8 @@ class _DeliveryRoutePageState extends State<DeliveryRoutePage> {
               // Bouton imprimer
               SizedBox(height: 48, child: ElevatedButton(
                 onPressed: () => _showPrintOptions(delivery),
-                child: Icon(Icons.print, size: 24),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: EdgeInsets.symmetric(horizontal: 16)),
+                child: Icon(Icons.print, size: 24),
               )),
               SizedBox(width: 8),
               Expanded(
@@ -549,8 +549,8 @@ class _DeliveryRoutePageState extends State<DeliveryRoutePage> {
               SizedBox(width: 8),
               SizedBox(height: 48, child: ElevatedButton(
                 onPressed: () => _reportFailure(delivery),
-                child: Icon(Icons.warning_amber, size: 24),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade400, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: EdgeInsets.symmetric(horizontal: 16)),
+                child: Icon(Icons.warning_amber, size: 24),
               )),
             ]),
           ]),
@@ -590,7 +590,7 @@ class _DeliveryRoutePageState extends State<DeliveryRoutePage> {
     _openNavigation(cafeteria.latitude!, cafeteria.longitude!, cafeteria.name);
   }
 
-  void _openNavigation(double lat, double lng, String name) async {
+  Future<void> _openNavigation(double lat, double lng, String name) async {
     // Essayer d'ouvrir avec l'app de navigation par défaut (Google Maps, OsmAnd, etc.)
     final Uri osmUri = Uri.parse('geo:$lat,$lng?q=$lat,$lng($name)');
     final Uri googleMapsUri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');

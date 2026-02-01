@@ -36,11 +36,11 @@ class FinancialOverview {
           : FinancialSummary(),
       topClients: (json['topClients'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
-          .map((e) => TopClient.fromJson(e))
+          .map(TopClient.fromJson)
           .toList(),
       delivererStats: (json['delivererStats'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
-          .map((e) => DelivererStat.fromJson(e))
+          .map(DelivererStat.fromJson)
           .toList(),
     );
   }
@@ -196,7 +196,7 @@ class CustomerDebt {
           : null,
       orders: (json['unpaidOrders'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
-          .map((e) => UnpaidOrder.fromJson(e))
+          .map(UnpaidOrder.fromJson)
           .toList(),
       lastOrderDate: json['lastOrderDate'] != null 
           ? DateTime.tryParse(json['lastOrderDate'].toString())
@@ -336,7 +336,7 @@ class Payment {
           : DateTime.now(),
       orders: (json['ordersAffected'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
-          .map((e) => PaymentOrderAllocation.fromJson(e))
+          .map(PaymentOrderAllocation.fromJson)
           .toList(),
     );
   }
@@ -455,7 +455,7 @@ class PaginatedDebts {
     return PaginatedDebts(
       data: (json['data'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
-          .map((e) => CustomerDebt.fromJson(e))
+          .map(CustomerDebt.fromJson)
           .toList(),
       pagination: PaginationInfo.fromJson(json['pagination'] as Map<String, dynamic>? ?? {}),
     );

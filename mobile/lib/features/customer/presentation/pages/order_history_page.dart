@@ -309,7 +309,7 @@ class _EditOrderSheet extends StatefulWidget {
   final List<Product> products;
   final Map<String, int> initialCart;
 
-  _EditOrderSheet({required this.products, required this.initialCart});
+  const _EditOrderSheet({required this.products, required this.initialCart});
 
   @override
   _EditOrderSheetState createState() => _EditOrderSheetState();

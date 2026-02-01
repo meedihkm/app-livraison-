@@ -236,7 +236,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             },
                           ),
                         ),
-                        Container(
+                        SizedBox(
                           width: 40,
                           child: Text(
                             '${_preferences?.minPatternCount ?? 3}x',
@@ -401,7 +401,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             },
                           ),
                         ),
-                        Container(
+                        SizedBox(
                           width: 60,
                           child: Text(
                             '${_notificationPreferences?.debtReminderFrequency ?? 7}j',

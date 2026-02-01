@@ -31,10 +31,9 @@ class LocationService {
   Future<Position?> getCurrentPosition() async {
     if (!await checkPermission()) return null;
     try {
-      _lastPosition = await Geolocator.getCurrentPosition(
-        locationSettings: LocationSettings(accuracy: LocationAccuracy.high),
+      return Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
-      return _lastPosition;
     } catch (e) {
       return null;
     }

@@ -54,7 +54,7 @@ class Order {
       amountPaid: parseDouble(json['amountPaid']),
       createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) : null,
       items: json['items'] is List<dynamic>
-          ? (json['items'] as List<dynamic>).whereType<Map<String, dynamic>>().map((item) => OrderItem.fromJson(item)).toList()
+          ? (json['items'] as List<dynamic>).whereType<Map<String, dynamic>>().map(OrderItem.fromJson).toList()
           : [],
       cafeteria: json['customer'] is Map<String, dynamic> ? Cafeteria.fromJson(json['customer'] as Map<String, dynamic>) : null,
       delivererId: json['delivererId']?.toString(),

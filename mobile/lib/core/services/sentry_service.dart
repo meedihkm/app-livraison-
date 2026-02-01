@@ -14,21 +14,15 @@ class SentryService {
     }
 
     await SentryFlutter.init(
-      (options) {
-        options.dsn = _dsn;
-        options.tracesSampleRate = kReleaseMode ? 0.2 : 1.0;
-        options.enableAutoPerformanceTracing = true;
-        options.attachStacktrace = true;
-        
+      (options) => options
+        ..dsn = _dsn
+        ..tracesSampleRate = kReleaseMode ? 0.2 : 1.0
+        ..enableAutoPerformanceTracing = true
+        ..attachStacktrace = true
         // Environnement (dev ou prod)
-        options.environment = kReleaseMode ? 'production' : 'development';
-        
+        ..environment = kReleaseMode ? 'production' : 'development'
         // Filtrage des informations sensibles
-        options.beforeSend = (SentryEvent event, Hint hint) {
-          // Filtrer les événements si nécessaire
-          return event;
-        };
-      },
+        ..beforeSend = (SentryEvent event, Hint hint) => event,
       appRunner: appRunner,
     );
   }
@@ -59,20 +53,16 @@ class SentryService {
 
   /// Ajoute des infos contextuelles sur l'utilisateur
   static void setUser(String id, {String? email, String? username}) {
-    Sentry.configureScope((scope) {
-      scope.setUser(SentryUser(
+    Sentry.configureScope((scope) => scope.setUser(SentryUser(
         id: id,
         email: email,
         username: username,
-      ));
-    });
+      )));
   }
 
   /// Efface les infos utilisateur (logout)
   static void clearUser() {
-    Sentry.configureScope((scope) {
-      scope.setUser(null);
-    });
+    Sentry.configureScope((scope) => scope.setUser(null));
   }
 
   /// Ajoute un breadcrumb (trace de navigation ou action)

@@ -11,7 +11,7 @@ class DeliveryDetailPage extends StatefulWidget {
   final Delivery delivery;
 // ... (skip lines to _confirmDelivery)
 
-  DeliveryDetailPage({required this.delivery});
+  const DeliveryDetailPage({super.key, required this.delivery});
 
   @override
   _DeliveryDetailPageState createState() => _DeliveryDetailPageState();

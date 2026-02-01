@@ -25,7 +25,7 @@ class FavoriteOrder {
       name: json['name']?.toString() ?? 'Favori',
       items: (json['items'] as List<dynamic>?)
               ?.whereType<Map<String, dynamic>>()
-              .map((item) => FavoriteOrderItem.fromJson(item))
+              .map(FavoriteOrderItem.fromJson)
               .toList() ??
           [],
       total: _parseDouble(json['total']),
