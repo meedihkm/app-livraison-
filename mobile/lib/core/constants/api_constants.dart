@@ -3,7 +3,7 @@ class ApiConstants {
   // En production: flutter build apk --dart-define=API_URL=https://votre-api.com/api
   static const String baseUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'http://62.171.130.92:3500/api/v1',  // VPS Production
+    defaultValue: 'https://awid.gleeze.com/api',  // Production
   );
   
   // Auth endpoints
