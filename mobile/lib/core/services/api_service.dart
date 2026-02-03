@@ -428,7 +428,7 @@ class ApiService {
   /// Récupère la dette détaillée d'un client
   Future<Map<String, dynamic>> getCustomerDebt(String customerId) async {
     try {
-      final result = await _request('GET', '${ApiConstants.baseUrl}/debts/customers/$customerId');
+      final result = await _request('GET', '${ApiConstants.baseUrl}/financial/debts/$customerId');
       return result['data'] is Map<String, dynamic> ? result['data'] as Map<String, dynamic> : {};
     } catch (e) {
       if (e is ApiException && e.statusCode == 404) return {};

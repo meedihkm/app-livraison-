@@ -747,7 +747,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
     final paid = _parseDouble(order['amountPaid']);
     final remaining = total - paid;
     final status = (order['status'] as String?) ?? 'pending';
-    final orderNumber = (order['orderNumber'] as String?) ?? (order['order_number'] as String?);
+    final orderNumber = order['orderNumber']?.toString() ?? order['order_number']?.toString();
 
     return Card(
       margin: EdgeInsets.only(bottom: 8),
