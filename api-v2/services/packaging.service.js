@@ -139,7 +139,7 @@ async function getDepositHistory(customerId, organizationId, options = {}) {
     SELECT pd.*, pt.name as type_name, u.name as recorded_by_name
     FROM packaging_deposits pd
     JOIN packaging_types pt ON pd.packaging_type_id = pt.id
-    LEFT JOIN users u ON pd.recorded_by = u.id
+    LEFT JOIN users u ON pd.recorded_by = u.id::text
     WHERE pd.customer_id = $1 AND pd.organization_id = $2
   `;
     const params = [customerId, organizationId];
