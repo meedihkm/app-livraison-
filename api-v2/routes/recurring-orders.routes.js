@@ -102,8 +102,8 @@ router.get("/", authenticate, authorize(["customer"]), async (req, res) => {
         JOIN products p ON roi.product_id = p.id
         WHERE roi.recurring_order_id = ro.id) as items
       FROM recurring_orders ro
-      WHERE ro.customer_id = $1::text 
-        AND ro.organization_id = $2::text
+      WHERE ro.customer_id = $1::uuid 
+        AND ro.organization_id = $2::uuid
       ORDER BY ro.created_at DESC`,
       [req.user.id, req.user.organization_id],
     );
@@ -151,8 +151,8 @@ router.get(
         JOIN products p ON roi.product_id = p.id
         WHERE roi.recurring_order_id = ro.id) as items
       FROM recurring_orders ro
-      WHERE ro.id = $1::text 
-        AND ro.organization_id = $2::text`,
+      WHERE ro.id = $1::uuid 
+        AND ro.organization_id = $2::uuid`,
         [req.params.id, req.user.organization_id],
       );
 
@@ -237,7 +237,7 @@ router.post(
       // VÃ©rifier que le client existe
       if (req.user.role === "admin" && customerId) {
         const customerCheck = await pool.query(
-          "SELECT id FROM users WHERE id = $1::text AND organization_id = $2::text AND role = $3",
+          "SELECT id FROM users WHERE id = $1::uuid AND organization_id = $2::uuid AND role = $3",
           [customerId, req.user.organization_id, "customer"],
         );
 
@@ -291,7 +291,7 @@ router.post(
         JOIN products p ON roi.product_id = p.id
         WHERE roi.recurring_order_id = ro.id) as items
       FROM recurring_orders ro
-      WHERE ro.id = $1::text`,
+      WHERE ro.id = $1::uuid`,
         [orderId],
       );
 
@@ -348,7 +348,7 @@ router.put(
     try {
       // VÃ©rifier que la commande existe et l'accÃ¨s
       const existing = await pool.query(
-        "SELECT * FROM recurring_orders WHERE id = $1::text AND organization_id = $2::text",
+        "SELECT * FROM recurring_orders WHERE id = $1::uuid AND organization_id = $2::uuid",
         [req.params.id, req.user.organization_id],
       );
 
@@ -402,7 +402,7 @@ router.put(
            day_of_month = COALESCE($4, day_of_month),
            time_of_day = COALESCE($5, time_of_day),
            updated_at = NOW()
-       WHERE id = $6::text`,
+       WHERE id = $6::uuid`,
         [name, frequency, dayOfWeek, dayOfMonth, timeOfDay, req.params.id],
       );
 
@@ -410,7 +410,7 @@ router.put(
       if (items && items.length > 0) {
         // Supprimer les anciens items
         await pool.query(
-          "DELETE FROM recurring_order_items WHERE recurring_order_id = $1::text",
+          "DELETE FROM recurring_order_items WHERE recurring_order_id = $1::uuid",
           [req.params.id],
         );
 
@@ -437,7 +437,7 @@ router.put(
         JOIN products p ON roi.product_id = p.id
         WHERE roi.recurring_order_id = ro.id) as items
       FROM recurring_orders ro
-      WHERE ro.id = $1::text`,
+      WHERE ro.id = $1::uuid`,
         [req.params.id],
       );
 
@@ -484,7 +484,7 @@ router.delete(
     try {
       // VÃ©rifier que la commande existe et l'accÃ¨s
       const existing = await pool.query(
-        "SELECT * FROM recurring_orders WHERE id = $1::text AND organization_id = $2::text",
+        "SELECT * FROM recurring_orders WHERE id = $1::uuid AND organization_id = $2::uuid",
         [req.params.id, req.user.organization_id],
       );
 
@@ -509,12 +509,12 @@ router.delete(
 
       // Supprimer les items
       await pool.query(
-        "DELETE FROM recurring_order_items WHERE recurring_order_id = $1::text",
+        "DELETE FROM recurring_order_items WHERE recurring_order_id = $1::uuid",
         [req.params.id],
       );
 
       // Supprimer la commande
-      await pool.query("DELETE FROM recurring_orders WHERE id = $1::text", [
+      await pool.query("DELETE FROM recurring_orders WHERE id = $1::uuid", [
         req.params.id,
       ]);
 
@@ -560,7 +560,7 @@ router.post(
     try {
       // VÃ©rifier que la commande existe et l'accÃ¨s
       const existing = await pool.query(
-        "SELECT * FROM recurring_orders WHERE id = $1::text AND organization_id = $2::text",
+        "SELECT * FROM recurring_orders WHERE id = $1::uuid AND organization_id = $2::uuid",
         [req.params.id, req.user.organization_id],
       );
 
@@ -586,7 +586,7 @@ router.post(
       // Toggle active
       const newActive = !order.active;
       await pool.query(
-        "UPDATE recurring_orders SET active = $1, updated_at = NOW() WHERE id = $2::text",
+        "UPDATE recurring_orders SET active = $1, updated_at = NOW() WHERE id = $2::uuid",
         [newActive, req.params.id],
       );
 
@@ -602,7 +602,7 @@ router.post(
         JOIN products p ON roi.product_id = p.id
         WHERE roi.recurring_order_id = ro.id) as items
       FROM recurring_orders ro
-      WHERE ro.id = $1::text`,
+      WHERE ro.id = $1::uuid`,
         [req.params.id],
       );
 
@@ -649,7 +649,7 @@ router.get(
 
     try {
       const active = req.query.active;
-      let whereClause = "WHERE ro.organization_id = $1::text";
+      let whereClause = "WHERE ro.organization_id = $1::uuid";
       const params = [req.user.organization_id];
 
       if (active !== undefined) {
