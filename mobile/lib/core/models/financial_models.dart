@@ -30,15 +30,19 @@ class FinancialOverview {
   });
 
   factory FinancialOverview.fromJson(Map<String, dynamic> json) {
+    // Sécuriser les casts pour éviter les erreurs si l'API retourne un type inattendu
+    final topClientsRaw = json['topClients'];
+    final delivererStatsRaw = json['delivererStats'];
+    
     return FinancialOverview(
       summary: json['summary'] is Map<String, dynamic>
           ? FinancialSummary.fromJson(json['summary'] as Map<String, dynamic>)
           : FinancialSummary(),
-      topClients: (json['topClients'] as List<dynamic>? ?? [])
+      topClients: (topClientsRaw is List<dynamic> ? topClientsRaw : [])
           .whereType<Map<String, dynamic>>()
           .map(TopClient.fromJson)
           .toList(),
-      delivererStats: (json['delivererStats'] as List<dynamic>? ?? [])
+      delivererStats: (delivererStatsRaw is List<dynamic> ? delivererStatsRaw : [])
           .whereType<Map<String, dynamic>>()
           .map(DelivererStat.fromJson)
           .toList(),
@@ -452,12 +456,16 @@ class PaginatedDebts {
   });
 
   factory PaginatedDebts.fromJson(Map<String, dynamic> json) {
+    // Gérer le cas où data n'est pas une liste (erreur API ou format inattendu)
+    final dynamic rawData = json['data'];
+    final List<dynamic> dataList = rawData is List<dynamic> ? rawData : [];
+    
     return PaginatedDebts(
-      data: (json['data'] as List<dynamic>? ?? [])
+      data: dataList
           .whereType<Map<String, dynamic>>()
           .map(CustomerDebt.fromJson)
           .toList(),
-      pagination: PaginationInfo.fromJson(json['pagination'] as Map<String, dynamic>? ?? {}),
+      pagination: PaginationInfo.fromJson(json['pagination'] is Map<String, dynamic> ? json['pagination'] as Map<String, dynamic> : {}),
     );
   }
 }

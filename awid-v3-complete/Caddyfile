@@ -1,0 +1,147 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# AWID v3.0 - CADDYFILE
+# Reverse proxy avec HTTPS automatique (Let's Encrypt)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Configuration globale
+{
+    email admin@awid.dz
+    
+    # Activer en staging pour les tests
+    # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# API Backend
+# ═══════════════════════════════════════════════════════════════════════════════
+
+api.awid.dz {
+    # Compression
+    encode gzip zstd
+
+    # Headers de sécurité
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    # CORS est géré côté application
+    
+    # WebSocket support
+    @websocket {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    reverse_proxy @websocket api:3000
+
+    # API routes
+    reverse_proxy api:3000 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        
+        # Timeouts
+        transport http {
+            dial_timeout 10s
+            response_header_timeout 30s
+            read_timeout 30s
+            write_timeout 30s
+        }
+    }
+
+    # Rate limiting (optionnel, à activer en production)
+    # rate_limit {
+    #     zone api_zone {
+    #         key {remote_host}
+    #         events 100
+    #         window 1m
+    #     }
+    # }
+
+    # Logs
+    log {
+        output file /var/log/caddy/api.log {
+            roll_size 10mb
+            roll_keep 5
+            roll_keep_for 720h
+        }
+        format json
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Admin Web (Dashboard)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+admin.awid.dz {
+    encode gzip zstd
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+        
+        # CSP pour React
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.awid.dz wss://api.awid.dz; frame-ancestors 'none';"
+    }
+
+    # SPA routing - toutes les routes vers index.html
+    reverse_proxy admin-web:80 {
+        header_up X-Real-IP {remote_host}
+    }
+
+    # Cache pour assets statiques
+    @static {
+        path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2
+    }
+    header @static Cache-Control "public, max-age=31536000, immutable"
+
+    log {
+        output file /var/log/caddy/admin.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+        format json
+    }
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Redirection www vers non-www
+# ═══════════════════════════════════════════════════════════════════════════════
+
+www.awid.dz {
+    redir https://awid.dz{uri} permanent
+}
+
+www.api.awid.dz {
+    redir https://api.awid.dz{uri} permanent
+}
+
+www.admin.awid.dz {
+    redir https://admin.awid.dz{uri} permanent
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Page d'accueil principale (optionnel)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+awid.dz {
+    encode gzip
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        -Server
+    }
+
+    # Rediriger vers l'admin ou afficher une page de présentation
+    redir /admin https://admin.awid.dz permanent
+    
+    # Page simple
+    respond "AWID - Système de livraison B2B" 200
+}

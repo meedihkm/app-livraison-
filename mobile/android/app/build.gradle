@@ -46,6 +46,12 @@ android {
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
         multiDexEnabled true
+        ndkVersion "26.1.10909125"
+    }
+    
+    packagingOptions {
+        pickFirst '**/libc++_shared.so'
+        pickFirst '**/libjsc.so'
     }
 
     buildTypes {

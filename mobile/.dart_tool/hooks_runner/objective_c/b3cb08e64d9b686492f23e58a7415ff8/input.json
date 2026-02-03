@@ -1,0 +1,29 @@
+{
+  "assets": {},
+  "config": {
+    "build_asset_types": [
+      "code_assets/code"
+    ],
+    "extensions": {
+      "code_assets": {
+        "android": {
+          "target_ndk_api": 24
+        },
+        "c_compiler": {
+          "ar": "C:\\Users\\hkm\\AppData\\Local\\Android\\Sdk\\ndk\\27.2.12479018\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\llvm-ar.exe",
+          "cc": "C:\\Users\\hkm\\AppData\\Local\\Android\\Sdk\\ndk\\27.2.12479018\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe",
+          "ld": "C:\\Users\\hkm\\AppData\\Local\\Android\\Sdk\\ndk\\27.2.12479018\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\ld.lld.exe"
+        },
+        "link_mode_preference": "dynamic",
+        "target_architecture": "arm64",
+        "target_os": "android"
+      }
+    },
+    "linking_enabled": true
+  },
+  "out_dir_shared": "D:\\app-sauvegarde\\app-livraison\\mobile\\.dart_tool\\hooks_runner\\shared\\objective_c\\build\\",
+  "out_file": "D:\\app-sauvegarde\\app-livraison\\mobile\\.dart_tool\\hooks_runner\\objective_c\\b3cb08e64d9b686492f23e58a7415ff8\\output.json",
+  "package_name": "objective_c",
+  "package_root": "C:\\Users\\hkm\\AppData\\Local\\Pub\\Cache\\hosted\\pub.dev\\objective_c-9.2.5\\",
+  "user_defines": {}
+}

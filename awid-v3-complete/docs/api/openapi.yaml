@@ -1,0 +1,937 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# AWID v3.0 - SPÉCIFICATION API (OpenAPI 3.0)
+# Documentation complète des endpoints
+# ═══════════════════════════════════════════════════════════════════════════════
+
+openapi: 3.0.3
+info:
+  title: AWID v3.0 API
+  description: |
+    API pour le système de gestion des livraisons AWID.
+    
+    ## Authentification
+    L'API utilise JWT (JSON Web Tokens) pour l'authentification.
+    Incluez le token dans le header `Authorization: Bearer <token>`.
+    
+    ## Formats
+    - Toutes les dates sont au format ISO 8601
+    - Les montants sont en Dinars Algériens (DA), en centimes
+    - Les IDs sont des UUIDs
+  version: 3.0.0
+  contact:
+    name: Support AWID
+    email: support@awid.dz
+
+servers:
+  - url: https://api.awid.dz/v1
+    description: Production
+  - url: https://staging-api.awid.dz/v1
+    description: Staging
+  - url: http://localhost:3000/api/v1
+    description: Développement local
+
+tags:
+  - name: Auth
+    description: Authentification et gestion des sessions
+  - name: Customers
+    description: Gestion des clients
+  - name: Products
+    description: Gestion des produits
+  - name: Orders
+    description: Gestion des commandes
+  - name: Deliveries
+    description: Gestion des livraisons
+  - name: Payments
+    description: Gestion des paiements
+  - name: Reports
+    description: Rapports et statistiques
+  - name: Sync
+    description: Synchronisation offline pour mobiles
+
+paths:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AUTHENTIFICATION
+  # ═══════════════════════════════════════════════════════════════════════════
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Connexion
+      description: Authentifie un utilisateur et retourne les tokens JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: admin@elbaraka.dz
+                password:
+                  type: string
+                  format: password
+                  example: Admin123!
+      responses:
+        '200':
+          description: Connexion réussie
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rafraîchir le token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Nouveau token généré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Déconnexion
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Déconnexion réussie
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CLIENTS
+  # ═══════════════════════════════════════════════════════════════════════════
+  /customers:
+    get:
+      tags: [Customers]
+      summary: Liste des clients
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SearchParam'
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [normal, vip, wholesale]
+        - name: hasDebt
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Liste des clients
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Customer'
+
+    post:
+      tags: [Customers]
+      summary: Créer un client
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerInput'
+      responses:
+        '201':
+          description: Client créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /customers/{id}:
+    get:
+      tags: [Customers]
+      summary: Détail d'un client
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Détail du client
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Customers]
+      summary: Modifier un client
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerInput'
+      responses:
+        '200':
+          description: Client modifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+
+    delete:
+      tags: [Customers]
+      summary: Supprimer un client
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: Client supprimé
+
+  /customers/{id}/orders:
+    get:
+      tags: [Customers]
+      summary: Historique des commandes d'un client
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Historique des commandes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Order'
+
+  /customers/{id}/debt:
+    get:
+      tags: [Customers]
+      summary: Détail des créances d'un client
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Détail des créances
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDebtDetail'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PRODUITS
+  # ═══════════════════════════════════════════════════════════════════════════
+  /products:
+    get:
+      tags: [Products]
+      summary: Liste des produits
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SearchParam'
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+        - name: lowStock
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Liste des produits
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Product'
+
+    post:
+      tags: [Products]
+      summary: Créer un produit
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '201':
+          description: Produit créé
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # COMMANDES
+  # ═══════════════════════════════════════════════════════════════════════════
+  /orders:
+    get:
+      tags: [Orders]
+      summary: Liste des commandes
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, pending, confirmed, preparing, ready, delivering, delivered, cancelled]
+        - name: customerId
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Liste des commandes
+
+    post:
+      tags: [Orders]
+      summary: Créer une commande
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderInput'
+      responses:
+        '201':
+          description: Commande créée
+
+  /orders/{id}/confirm:
+    post:
+      tags: [Orders]
+      summary: Confirmer une commande
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Commande confirmée
+
+  /orders/{id}/cancel:
+    post:
+      tags: [Orders]
+      summary: Annuler une commande
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Commande annulée
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LIVRAISONS
+  # ═══════════════════════════════════════════════════════════════════════════
+  /deliveries:
+    get:
+      tags: [Deliveries]
+      summary: Liste des livraisons
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: delivererId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, assigned, in_progress, delivered, failed, cancelled]
+      responses:
+        '200':
+          description: Liste des livraisons
+
+  /deliveries/{id}/complete:
+    post:
+      tags: [Deliveries]
+      summary: Marquer une livraison comme terminée
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryCompletion'
+      responses:
+        '200':
+          description: Livraison terminée
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PAIEMENTS
+  # ═══════════════════════════════════════════════════════════════════════════
+  /payments:
+    post:
+      tags: [Payments]
+      summary: Enregistrer un paiement
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentInput'
+      responses:
+        '201':
+          description: Paiement enregistré
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SYNCHRONISATION
+  # ═══════════════════════════════════════════════════════════════════════════
+  /sync/pull:
+    get:
+      tags: [Sync]
+      summary: Récupérer les données pour synchronisation offline
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: since
+          in: query
+          description: Date de dernière synchronisation (ISO 8601)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Données à synchroniser
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliveries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Delivery'
+                  customers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Customer'
+                  products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+
+  /sync/deliveries/{id}/complete:
+    post:
+      tags: [Sync]
+      summary: Synchroniser une livraison complétée (depuis offline)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryCompletion'
+      responses:
+        '200':
+          description: Synchronisation réussie
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPOSANTS
+# ═══════════════════════════════════════════════════════════════════════════════
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+    SearchParam:
+      name: search
+      in: query
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: Requête invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Non authentifié
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Ressource non trouvée
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+    PaginatedResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            limit:
+              type: integer
+            total:
+              type: integer
+            totalPages:
+              type: integer
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            accessToken:
+              type: string
+            refreshToken:
+              type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum: [admin, manager, sales, deliverer, customer]
+        organizationId:
+          type: string
+
+    Customer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: CLT001
+        name:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        wilaya:
+          type: string
+        category:
+          type: string
+          enum: [normal, vip, wholesale]
+        creditLimitEnabled:
+          type: boolean
+        creditLimit:
+          type: number
+        currentDebt:
+          type: number
+        isActive:
+          type: boolean
+
+    CustomerInput:
+      type: object
+      required: [name, phone, address]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        wilaya:
+          type: string
+        category:
+          type: string
+          enum: [normal, vip, wholesale]
+        creditLimitEnabled:
+          type: boolean
+        creditLimit:
+          type: number
+
+    CustomerDebtDetail:
+      type: object
+      properties:
+        totalDebt:
+          type: number
+        aging:
+          type: object
+          properties:
+            current:
+              type: number
+            days30:
+              type: number
+            days60:
+              type: number
+            over90:
+              type: number
+        unpaidOrders:
+          type: array
+          items:
+            type: object
+            properties:
+              orderId:
+                type: string
+              orderNumber:
+                type: string
+              date:
+                type: string
+                format: date
+              totalAmount:
+                type: number
+              paidAmount:
+                type: number
+              remaining:
+                type: number
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        categoryId:
+          type: string
+        unit:
+          type: string
+        basePrice:
+          type: number
+        discountPrice:
+          type: number
+        stockQuantity:
+          type: integer
+        minStockLevel:
+          type: integer
+        imageUrl:
+          type: string
+        isActive:
+          type: boolean
+
+    ProductInput:
+      type: object
+      required: [sku, name, categoryId, unit, basePrice]
+      properties:
+        sku:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        categoryId:
+          type: string
+        unit:
+          type: string
+        basePrice:
+          type: number
+        discountPrice:
+          type: number
+        stockQuantity:
+          type: integer
+        minStockLevel:
+          type: integer
+        isActive:
+          type: boolean
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        orderNumber:
+          type: string
+        customerId:
+          type: string
+        status:
+          type: string
+          enum: [draft, pending, confirmed, preparing, ready, delivering, delivered, cancelled]
+        subtotal:
+          type: number
+        discount:
+          type: number
+        deliveryFee:
+          type: number
+        totalAmount:
+          type: number
+        paidAmount:
+          type: number
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        createdAt:
+          type: string
+          format: date-time
+
+    OrderItem:
+      type: object
+      properties:
+        productId:
+          type: string
+        productName:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          type: number
+        subtotal:
+          type: number
+
+    OrderInput:
+      type: object
+      required: [customerId, items]
+      properties:
+        customerId:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            required: [productId, quantity]
+            properties:
+              productId:
+                type: string
+              quantity:
+                type: integer
+        notes:
+          type: string
+        requestedDeliveryDate:
+          type: string
+          format: date
+
+    Delivery:
+      type: object
+      properties:
+        id:
+          type: string
+        orderId:
+          type: string
+        orderNumber:
+          type: string
+        customerId:
+          type: string
+        customerName:
+          type: string
+        customerAddress:
+          type: string
+        delivererId:
+          type: string
+        status:
+          type: string
+          enum: [pending, assigned, in_progress, delivered, failed, cancelled]
+        scheduledDate:
+          type: string
+          format: date
+        totalAmount:
+          type: number
+        amountCollected:
+          type: number
+
+    DeliveryCompletion:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [delivered, failed]
+        amountCollected:
+          type: number
+        paymentMode:
+          type: string
+          enum: [cash, check]
+        signature:
+          type: string
+          description: Base64 encoded signature image
+        proofPhotos:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+        failureReason:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
+
+    PaymentInput:
+      type: object
+      required: [customerId, amount, mode]
+      properties:
+        customerId:
+          type: string
+        orderId:
+          type: string
+        deliveryId:
+          type: string
+        amount:
+          type: number
+        mode:
+          type: string
+          enum: [cash, check, transfer]
+        checkNumber:
+          type: string
+        checkBank:
+          type: string
+        checkDate:
+          type: string
+          format: date
+        notes:
+          type: string

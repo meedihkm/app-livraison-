@@ -1,0 +1,130 @@
+{
+  "name": "AWID v3.0",
+  "description": "Application de gestion de livraisons B2B",
+  "version": "3.0.0",
+  "services": [
+    {
+      "name": "backend",
+      "description": "API Node.js / TypeScript",
+      "dockerfile": "Dockerfile",
+      "context": "./backend",
+      "port": 3000,
+      "healthcheck": {
+        "path": "/health",
+        "interval": "30s",
+        "timeout": "10s",
+        "retries": 3
+      },
+      "environment": [
+        "NODE_ENV=production",
+        "PORT=3000",
+        "DATABASE_URL",
+        "REDIS_URL",
+        "JWT_SECRET",
+        "JWT_REFRESH_SECRET",
+        "MINIO_ENDPOINT",
+        "MINIO_PORT",
+        "MINIO_ACCESS_KEY",
+        "MINIO_SECRET_KEY",
+        "MINIO_BUCKET",
+        "S3_ENDPOINT"
+      ],
+      "depends_on": ["postgres", "redis", "minio"]
+    },
+    {
+      "name": "admin",
+      "description": "Interface d'administration React",
+      "dockerfile": "Dockerfile",
+      "context": "./admin",
+      "port": 80,
+      "environment": [
+        "VITE_API_URL=/api"
+      ],
+      "depends_on": ["backend"]
+    },
+    {
+      "name": "postgres",
+      "description": "Base de données PostgreSQL",
+      "image": "postgres:15-alpine",
+      "port": 5432,
+      "volumes": [
+        "postgres_data:/var/lib/postgresql/data",
+        "./backups:/backups"
+      ],
+      "environment": [
+        "POSTGRES_USER",
+        "POSTGRES_PASSWORD",
+        "POSTGRES_DB"
+      ]
+    },
+    {
+      "name": "redis",
+      "description": "Cache et sessions Redis",
+      "image": "redis:7-alpine",
+      "port": 6379,
+      "command": "redis-server --appendonly yes --appendfsync everysec --maxmemory 256mb --maxmemory-policy allkeys-lru",
+      "volumes": [
+        "redis_data:/data"
+      ]
+    },
+    {
+      "name": "pgadmin",
+      "description": "Interface web PostgreSQL",
+      "image": "dpage/pgadmin4:latest",
+      "port": 80,
+      "environment": [
+        "PGADMIN_DEFAULT_EMAIL",
+        "PGADMIN_DEFAULT_PASSWORD",
+        "PGADMIN_CONFIG_SERVER_MODE=True",
+        "PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False"
+      ],
+      "volumes": [
+        "pgadmin_data:/var/lib/pgadmin"
+      ]
+    },
+    {
+      "name": "minio",
+      "description": "Stockage S3 compatible",
+      "image": "minio/minio:latest",
+      "port": 9000,
+      "command": "server /data --console-address \":9001\"",
+      "environment": [
+        "MINIO_ROOT_USER",
+        "MINIO_ROOT_PASSWORD",
+        "MINIO_BROWSER_REDIRECT_URL"
+      ],
+      "volumes": [
+        "minio_data:/data"
+      ]
+    },
+    {
+      "name": "backup",
+      "description": "Sauvegardes automatiques",
+      "image": "offen/docker-volume-backup:latest",
+      "environment": [
+        "BACKUP_CRON_EXPRESSION=0 2 * * *",
+        "BACKUP_RETENTION_DAYS=30",
+        "BACKUP_FILENAME=backup-%Y-%m-%dT%H-%M-%S.tar.gz",
+        "BACKUP_ARCHIVE=/archive",
+        "BACKUP_STOP_CONTAINER_LABEL=awid.stop-during-backup",
+        "BACKUP_FROM_SNAPSHOT=true",
+        "AWS_S3_BUCKET_NAME",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_ENDPOINT_URL",
+        "AWS_S3_PATH=backups"
+      ],
+      "volumes": [
+        "postgres_data:/backup/postgres:ro",
+        "redis_data:/backup/redis:ro",
+        "minio_data:/backup/minio:ro"
+      ]
+    }
+  ],
+  "volumes": [
+    "postgres_data",
+    "redis_data",
+    "pgadmin_data",
+    "minio_data"
+  ]
+}

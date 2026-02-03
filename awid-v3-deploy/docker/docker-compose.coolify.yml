@@ -1,0 +1,194 @@
+# AWID v3.0 - Configuration Coolify
+# Ce fichier est utilisé par Coolify pour déployer l'application
+# Les domaines sont générés automatiquement par Coolify
+
+version: '3.8'
+
+services:
+  # ==========================================
+  # BACKEND - API Node.js
+  # ==========================================
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: awid-backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - MINIO_BUCKET=${MINIO_BUCKET}
+      - S3_ENDPOINT=http://minio:9000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - awid-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==========================================
+  # ADMIN - React + Nginx
+  # ==========================================
+  admin:
+    build:
+      context: ../admin
+      dockerfile: Dockerfile
+    container_name: awid-admin
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=/api
+    depends_on:
+      - backend
+    networks:
+      - awid-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================
+  # DATABASE - PostgreSQL 15
+  # ==========================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: awid-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+      - ../backend/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - awid-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ==========================================
+  # CACHE - Redis (Persistence AOF)
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: awid-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --appendfsync everysec --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - awid-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # PGADMIN - Administration PostgreSQL
+  # ==========================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: awid-pgadmin
+    restart: unless-stopped
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD}
+      - PGADMIN_CONFIG_SERVER_MODE=True
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json
+    networks:
+      - awid-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/misc/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================
+  # MINIO - S3 Storage (Self-hosted)
+  # ==========================================
+  minio:
+    image: minio/minio:latest
+    container_name: awid-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_BROWSER_REDIRECT_URL=https://${MINIO_CONSOLE_DOMAIN}
+    volumes:
+      - minio_data:/data
+    networks:
+      - awid-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # ==========================================
+  # BACKUP SERVICE - Automatique
+  # ==========================================
+  backup:
+    image: offen/docker-volume-backup:latest
+    container_name: awid-backup
+    restart: unless-stopped
+    environment:
+      - BACKUP_CRON_EXPRESSION=0 2 * * *
+      - BACKUP_RETENTION_DAYS=30
+      - BACKUP_FILENAME=backup-%Y-%m-%dT%H-%M-%S.tar.gz
+      - BACKUP_ARCHIVE=/archive
+      - BACKUP_STOP_CONTAINER_LABEL=awid.stop-during-backup
+      - BACKUP_FROM_SNAPSHOT=true
+      - AWS_S3_BUCKET_NAME=${MINIO_BUCKET}
+      - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
+      - AWS_ENDPOINT_URL=http://minio:9000
+      - AWS_S3_PATH=backups
+    volumes:
+      - postgres_data:/backup/postgres:ro
+      - redis_data:/backup/redis:ro
+      - minio_data:/backup/minio:ro
+    networks:
+      - awid-network
+    depends_on:
+      - minio
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  awid-network:
+    driver: bridge

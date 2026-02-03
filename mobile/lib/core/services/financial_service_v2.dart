@@ -64,7 +64,11 @@ class FinancialServiceV2 {
         throw FinancialException(response['error']?.toString() ?? 'Erreur inconnue');
       }
       
-      return FinancialOverview.fromJson(response['data'] as Map<String, dynamic>);
+      final rawData = response['data'];
+      if (rawData is! Map<String, dynamic>) {
+        throw FinancialException('Format de réponse invalide: données manquantes');
+      }
+      return FinancialOverview.fromJson(rawData);
     } catch (e) {
       throw FinancialException('Erreur lors du chargement des stats: $e');
     }
@@ -124,7 +128,11 @@ class FinancialServiceV2 {
         throw FinancialException(response['error']?.toString() ?? 'Client non trouvé');
       }
       
-      return CustomerDebt.fromJson(response['data'] as Map<String, dynamic>);
+      final rawData = response['data'];
+      if (rawData is! Map<String, dynamic>) {
+        throw FinancialException('Format de réponse invalide pour le client');
+      }
+      return CustomerDebt.fromJson(rawData);
     } catch (e) {
       throw FinancialException('Erreur lors du chargement de la dette: $e');
     }
@@ -173,7 +181,11 @@ class FinancialServiceV2 {
         throw FinancialException(response['error']?.toString() ?? 'Erreur lors de l\'enregistrement');
       }
       
-      return Payment.fromJson(response['data'] as Map<String, dynamic>);
+      final rawData = response['data'];
+      if (rawData is! Map<String, dynamic>) {
+        throw FinancialException('Format de réponse invalide pour le paiement');
+      }
+      return Payment.fromJson(rawData);
     } catch (e) {
       throw FinancialException('Erreur lors de l\'enregistrement du paiement: $e');
     }
@@ -191,8 +203,9 @@ class FinancialServiceV2 {
         throw FinancialException(response['error']?.toString() ?? 'Erreur inconnue');
       }
       
-      final data = response['data'] as List<dynamic>? ?? [];
-      return data.map((e) => Payment.fromJson(e as Map<String, dynamic>)).toList();
+      final rawData = response['data'];
+      final data = rawData is List<dynamic> ? rawData : [];
+      return data.whereType<Map<String, dynamic>>().map(Payment.fromJson).toList();
     } catch (e) {
       throw FinancialException('Erreur lors du chargement des collections: $e');
     }
@@ -214,8 +227,9 @@ class FinancialServiceV2 {
         throw FinancialException(response['error']?.toString() ?? 'Erreur inconnue');
       }
       
-      final data = response['data'] as List<dynamic>? ?? [];
-      return data.map((e) => CreditAlert.fromJson(e as Map<String, dynamic>)).toList();
+      final rawData = response['data'];
+      final data = rawData is List<dynamic> ? rawData : [];
+      return data.whereType<Map<String, dynamic>>().map(CreditAlert.fromJson).toList();
     } catch (e) {
       throw FinancialException('Erreur lors du chargement des alertes: $e');
     }
@@ -237,7 +251,11 @@ class FinancialServiceV2 {
         throw FinancialException(response['error']?.toString() ?? 'Erreur lors de la mise à jour');
       }
       
-      return response['data'] as Map<String, dynamic>;
+      final rawData = response['data'];
+      if (rawData is! Map<String, dynamic>) {
+        throw FinancialException('Format de réponse invalide');
+      }
+      return rawData;
     } catch (e) {
       throw FinancialException('Erreur lors de la mise à jour de la limite: $e');
     }
