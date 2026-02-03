@@ -138,7 +138,7 @@ async function getDepositHistory(customerId, organizationId, options = {}) {
     let query = `
     SELECT pd.*, pt.name as type_name, u.name as recorded_by_name
     FROM packaging_deposits pd
-    JOIN packaging_types pt ON pd.packaging_type_id = pt.id
+    JOIN packaging_types pt ON pd.packaging_type_id = pt.id::text
     LEFT JOIN users u ON pd.recorded_by = u.id::text
     WHERE pd.customer_id = $1 AND pd.organization_id = $2
   `;
@@ -175,7 +175,7 @@ async function getOrganizationSummary(organizationId) {
        COALESCE(SUM(pd.quantity), 0) as total_outstanding,
        COUNT(DISTINCT pd.customer_id) as customers_count
      FROM packaging_types pt
-     LEFT JOIN packaging_deposits pd ON pt.id = pd.packaging_type_id
+     LEFT JOIN packaging_deposits pd ON pt.id::text = pd.packaging_type_id
      WHERE pt.organization_id = $1 AND pt.active = true
      GROUP BY pt.id, pt.name, pt.deposit_value
      ORDER BY pt.name`,

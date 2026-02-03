@@ -320,15 +320,14 @@ class FinancialService {
 
       const customer = customerCheck.rows[0];
 
-      // 2. Calculer la dette actuelle (avec row lock)
+      // 2. Calculer la dette actuelle
       const debtResult = await client.query(
         `SELECT COALESCE(SUM(total - amount_paid), 0) as current_debt
          FROM orders
          WHERE customer_id = $1 
            AND organization_id = $2 
            AND total > amount_paid 
-           AND status != 'cancelled'
-         FOR UPDATE`,
+           AND status != 'cancelled'`,
         [customerId, organizationId]
       );
 
