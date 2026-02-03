@@ -767,7 +767,7 @@ router.get(
           al.details->>'mode' as mode
         FROM audit_logs al
         WHERE al.action = 'PAYMENT_RECORDED'
-          AND al.performed_by = $1
+          AND al.user_id = $1
           AND al.organization_id = $2
           AND DATE(al.created_at) = CURRENT_DATE
         ORDER BY al.created_at DESC`,
