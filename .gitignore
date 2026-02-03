@@ -165,18 +165,39 @@ tests/
 # Dossier local (docs, audits, scripts non versionnés)
 awid-local/
 
-# Fichiers et dossiers obsolètes à ne jamais recommiter
-config/
-middleware/
-migrations/
-queries/
-queues/
-routes/
-schemas/
-services/
-utils/
-workers/
-scripts/
+# Fichiers et dossiers obsolètes à ne jamais recommiter (uniquement à la racine)
+/config/
+/middleware/
+/migrations/
+/queries/
+/queues/
+/routes/
+/schemas/
+/services/
+/utils/
+/workers/
+/scripts/
+
+# Mais garder ceux dans api-v2
+!api-v2/config/
+!api-v2/config/**
+!api-v2/middleware/
+!api-v2/middleware/**
+!api-v2/migrations/**
+!api-v2/queries/
+!api-v2/queries/**
+!api-v2/queues/
+!api-v2/queues/**
+!api-v2/routes/
+!api-v2/routes/**
+!api-v2/schemas/
+!api-v2/schemas/**
+!api-v2/services/
+!api-v2/services/**
+!api-v2/utils/
+!api-v2/utils/**
+!api-v2/workers/
+!api-v2/workers/**
 awid-deploy-final/
 awid-v3-complete/
 awid-v3-deploy/
@@ -212,6 +233,9 @@ android-sdk-license.txt
 build_apk_awid.bat
 deploy-to-repo.ps1
 freezed_files.txt
-index.js
+/index.js
 setup_env.ps1
 app livraison.code-workspace
+
+# Ne pas ignorer api-v2/index.js
+!api-v2/index.js
