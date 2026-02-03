@@ -51,7 +51,7 @@ class _DebtCollectionPageState extends State<DebtCollectionPage> {
   Future<void> _showCollectDebtDialog(Map<String, dynamic> client) async {
     final amountController = TextEditingController();
     final notesController = TextEditingController();
-    final debtValue = client['debt'];
+    final debtValue = client['totalDebt'];
     final debt = (debtValue is num) ? debtValue.toDouble() : 0.0;
 
     amountController.text = debt.toStringAsFixed(0);
@@ -288,12 +288,12 @@ class _DebtCollectionPageState extends State<DebtCollectionPage> {
                         child: Icon(Icons.warning_amber, color: Colors.red),
                       ),
                       title: Text((client['name'] as String?) ?? 'Client', style: TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Text('${client['order_count'] ?? 0} commande(s) impayée(s)'),
+                      subtitle: Text('${client['unpaidOrders'] ?? 0} commande(s) impayée(s)'),
                       trailing: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text('${_parseDouble(client['debt']).toStringAsFixed(0)} DA',
+                          Text('${_parseDouble(client['totalDebt']).toStringAsFixed(0)} DA',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.red,
