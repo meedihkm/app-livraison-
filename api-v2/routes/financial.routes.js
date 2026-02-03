@@ -90,7 +90,7 @@ router.get(
         COALESCE(SUM(o.total - o.amount_paid), 0) as total_debt,
         COUNT(*) as order_count
       FROM users u
-      JOIN orders o ON u.id = o.customer_id
+      JOIN orders o ON u.id::text = o.customer_id
       WHERE o.organization_id = $1
         AND o.status != 'cancelled'
         ${dateFilter}
@@ -224,7 +224,7 @@ router.get(
         COALESCE(SUM(o.total - o.amount_paid), 0) as total_debt,
         MAX(o.created_at) as last_order_date
       FROM orders o
-      JOIN users u ON o.customer_id = u.id
+      JOIN users u ON o.customer_id = u.id::text
       ${whereClause}
       GROUP BY u.id, u.name, u.email, u.phone
       HAVING COALESCE(SUM(o.total - o.amount_paid), 0) >= $${paramIndex}
@@ -529,7 +529,7 @@ router.get(
         u.credit_limit,
         COALESCE(SUM(o.total) - SUM(o.amount_paid), 0) as current_debt
       FROM users u
-      LEFT JOIN orders o ON u.id = o.customer_id 
+      LEFT JOIN orders o ON u.id::text = o.customer_id 
         AND o.organization_id = $2 
         AND o.total > o.amount_paid
         AND o.status != 'cancelled'
@@ -684,7 +684,7 @@ router.get(
         COALESCE(SUM(o.total) - SUM(o.amount_paid), 0) as current_debt,
         ROUND((COALESCE(SUM(o.total) - SUM(o.amount_paid), 0) / NULLIF(u.credit_limit, 0)) * 100) as ratio
       FROM users u
-      LEFT JOIN orders o ON u.id = o.customer_id 
+      LEFT JOIN orders o ON u.id::text = o.customer_id 
         AND o.organization_id = $1 
         AND o.total > o.amount_paid
         AND o.status != 'cancelled'
