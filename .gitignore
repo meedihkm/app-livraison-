@@ -161,3 +161,57 @@ tests/
 
 # Documentation temporaire
 *.md.bak
+
+# Dossier local (docs, audits, scripts non versionnés)
+awid-local/
+
+# Fichiers et dossiers obsolètes à ne jamais recommiter
+config/
+middleware/
+migrations/
+queries/
+queues/
+routes/
+schemas/
+services/
+utils/
+workers/
+scripts/
+awid-deploy-final/
+awid-v3-complete/
+awid-v3-deploy/
+backend-v4/
+mobile-v4/
+*.md.bak
+AUDIT_*.md
+PLAN_*.md
+SESSION_*.md
+GUIDE_*.md
+ARCHITECTURE_*.md
+BUILD_ERRORS_*.md
+CI_CD_SETUP.md
+CORRECTION*.md
+DEPLOY*.md
+DIAGRAMMES_*.md
+IMPLEMENTATION_*.md
+MIGRATION_*.md
+MOBILE_*.md
+NAVIGATION_*.md
+QUICK_START_*.md
+README_AUDIT.md
+REFACTORING*.md
+ROADMAP*.md
+SOLUTION_*.md
+SPRINT_*.md
+STATUS_*.md
+SUMMARY.md
+SUPER_ADMIN*.md
+TOUTES_LES_ERREURS*.md
+WIREFRAMES*.md
+android-sdk-license.txt
+build_apk_awid.bat
+deploy-to-repo.ps1
+freezed_files.txt
+index.js
+setup_env.ps1
+app livraison.code-workspace
