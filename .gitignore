@@ -139,6 +139,14 @@ mobile-v4/
 backend-v4/
 
 # api-v2 est maintenant dans le repo
+
+# Embedded repositories (NEVER commit these)
+flutter/
+flutter_windows_3.38.5-stable/
+mehdirepo-deploy/
+repo/
+awid-v3-complete/
+awid-v3-deploy/
 # api-v2/
 
 # Logs
