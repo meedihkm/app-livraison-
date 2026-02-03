@@ -79,8 +79,9 @@ class _FinancialPageState extends State<FinancialPage> {
       ]);
 
       setState(() {
-        _overview = results[0]['data'] as Map<String, dynamic>?;
-        _debts = results[1]['data'] as List<dynamic>? ?? [];
+        _overview = results[0]['data'] is Map<String, dynamic> ? results[0]['data'] as Map<String, dynamic> : null;
+        final rawDebts = results[1]['data'];
+        _debts = rawDebts is List<dynamic> ? rawDebts : [];
         _isLoading = false;
       });
     } catch (e) {

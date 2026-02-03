@@ -26,7 +26,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
       final response = await _api.getMyFavorites();
       if (response['success'] == true && mounted) {
         setState(() {
-          _favorites = (response['data'] as List<dynamic>?) ?? [];
+          _favorites = (response['data'] is List<dynamic> ? response['data'] as List<dynamic> : []);
           _isLoading = false;
         });
       }
@@ -45,7 +45,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
       await _api.useFavorite(favorite['id'] as String);
 
       // Créer une commande avec les items du favori
-      final items = (favorite['items'] as List<dynamic>).cast<Map<String, dynamic>>();
+      final items = (favorite['items'] is List<dynamic> ? favorite['items'] as List<dynamic> : []).cast<Map<String, dynamic>>();
 
       // Naviguer vers la page de nouvelle commande avec les items pré-remplis
       if (mounted) {
@@ -147,7 +147,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                     itemCount: _favorites.length,
                     itemBuilder: (context, index) {
                       final favorite = _favorites[index] as Map<String, dynamic>;
-                      final items = (favorite['items'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [];
+                      final items = (favorite['items'] is List<dynamic> ? favorite['items'] as List<dynamic> : []).cast<Map<String, dynamic>>();
                       final total = favorite['total'] ?? 0.0;
                       final orderCount = favorite['order_count'] ?? 0;
                       final isAutoDetected = (favorite['is_auto_detected'] as bool?) ?? false;

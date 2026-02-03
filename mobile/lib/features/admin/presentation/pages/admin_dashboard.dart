@@ -170,8 +170,8 @@ class _DashboardHomePageState extends State<_DashboardHomePage> {
       final debtsRes = await _financialService.getDebts();
 
       if (mounted) {
-        _allOrders = (ordersRes['data'] as List<dynamic>?) ?? [];
-        _debts = (debtsRes['data'] as List<dynamic>?) ?? [];
+        _allOrders = (ordersRes['data'] is List<dynamic> ? ordersRes['data'] as List<dynamic> : []);
+        _debts = (debtsRes['data'] is List<dynamic> ? debtsRes['data'] as List<dynamic> : []);
         _calculateStats();
         setState(() => _isLoading = false);
       }

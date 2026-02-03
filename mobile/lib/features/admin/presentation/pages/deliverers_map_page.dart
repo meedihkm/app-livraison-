@@ -91,7 +91,7 @@ class _DeliverersMapPageState extends State<DeliverersMapPage> {
     final response = await _apiService.getDeliverersLocations();
     if (response['success'] == true && mounted) {
       setState(() {
-        _deliverers = List<Map<String, dynamic>>.from(response['data'] as List<dynamic>);
+        _deliverers = List<Map<String, dynamic>>.from(response['data'] is List<dynamic> ? response['data'] as List<dynamic> : []);
       });
     }
   }
@@ -100,7 +100,7 @@ class _DeliverersMapPageState extends State<DeliverersMapPage> {
     final response = await _apiService.getClientsLocations();
     if (response['success'] == true && mounted) {
       setState(() {
-        _clients = List<Map<String, dynamic>>.from(response['data'] as List<dynamic>);
+        _clients = List<Map<String, dynamic>>.from(response['data'] is List<dynamic> ? response['data'] as List<dynamic> : []);
       });
     }
   }
@@ -109,7 +109,7 @@ class _DeliverersMapPageState extends State<DeliverersMapPage> {
     // For deliverers, load their assigned route
     final response = await _apiService.getDeliveryRoute();
     if (response['success'] == true && mounted) {
-      final deliveries = List<Map<String, dynamic>>.from(response['data'] as List<dynamic>);
+      final deliveries = List<Map<String, dynamic>>.from(response['data'] is List<dynamic> ? response['data'] as List<dynamic> : []);
       
       List<Map<String, dynamic>> points = [];
       for (var d in deliveries) {

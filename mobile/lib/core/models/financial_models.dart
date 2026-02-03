@@ -198,7 +198,7 @@ class CustomerDebt {
       credit: json['credit'] != null 
           ? CreditInfo.fromJson(json['credit'] as Map<String, dynamic>)
           : null,
-      orders: (json['unpaidOrders'] as List<dynamic>? ?? [])
+      orders: (json['unpaidOrders'] is List<dynamic> ? json['unpaidOrders'] as List<dynamic> : [])
           .whereType<Map<String, dynamic>>()
           .map(UnpaidOrder.fromJson)
           .toList(),
@@ -338,7 +338,7 @@ class Payment {
       createdAt: json['createdAt'] != null 
           ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
-      orders: (json['ordersAffected'] as List<dynamic>? ?? [])
+      orders: (json['ordersAffected'] is List<dynamic> ? json['ordersAffected'] as List<dynamic> : [])
           .whereType<Map<String, dynamic>>()
           .map(PaymentOrderAllocation.fromJson)
           .toList(),

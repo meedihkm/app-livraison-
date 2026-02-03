@@ -39,7 +39,7 @@ class _UsersPageState extends State<UsersPage> {
       final response = await _apiService.getUsers();
       if (response['success'] == true) {
         setState(() {
-          _users = response['data'] as List<dynamic>;
+          _users = (response['data'] is List<dynamic> ? response['data'] as List<dynamic> : []);
           _isLoading = false;
         });
       }

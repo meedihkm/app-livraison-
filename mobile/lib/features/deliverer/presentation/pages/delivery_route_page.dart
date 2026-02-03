@@ -127,7 +127,7 @@ class _DeliveryRoutePageState extends State<DeliveryRoutePage> {
       final response = await _apiService.getDeliveryRoute();
       if (response['success'] == true) {
         setState(() {
-          _deliveries = (response['data'] as List<dynamic>).map((json) => Delivery.fromJson(json as Map<String, dynamic>)).toList();
+          _deliveries = (response['data'] is List<dynamic> ? response['data'] as List<dynamic> : []).map((json) => Delivery.fromJson(json as Map<String, dynamic>)).toList();
           _isLoading = false;
         });
       }

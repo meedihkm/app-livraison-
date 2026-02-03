@@ -23,11 +23,10 @@ class FavoriteOrder {
     return FavoriteOrder(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? 'Favori',
-      items: (json['items'] as List<dynamic>?)
-              ?.whereType<Map<String, dynamic>>()
+      items: (json['items'] is List<dynamic> ? json['items'] as List<dynamic> : [])
+              .whereType<Map<String, dynamic>>()
               .map(FavoriteOrderItem.fromJson)
-              .toList() ??
-          [],
+              .toList(),
       total: _parseDouble(json['total']),
       orderCount: (json['order_count'] as num?)?.toInt() ?? 0,
       lastOrderedAt: json['last_ordered_at'] != null

@@ -53,7 +53,7 @@ class RecurringOrder {
       ? DateTime.tryParse(json['nextGenerationAt'].toString()) 
       : null,
     createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
-    items: (json['items'] as List<dynamic>? ?? [])
+    items: (json['items'] is List<dynamic> ? json['items'] as List<dynamic> : [])
         .whereType<Map<String, dynamic>>()
         .map(RecurringOrderItem.fromJson)
         .toList(),

@@ -134,10 +134,10 @@ class _ClientDetailPageState extends State<ClientDetailPage> with SingleTickerPr
       if (mounted) {
         setState(() {
           if (balanceResult['success'] == true && balanceResult['data'] != null) {
-            _packagingBalance = (balanceResult['data'] as List<dynamic>).map((e) => PackagingBalance.fromJson(e as Map<String, dynamic>)).toList();
+            _packagingBalance = (balanceResult['data'] is List<dynamic> ? balanceResult['data'] as List<dynamic> : []).map((e) => PackagingBalance.fromJson(e as Map<String, dynamic>)).toList();
           }
           if (historyResult['success'] == true && historyResult['data'] != null) {
-            _packagingHistory = (historyResult['data'] as List<dynamic>).map((e) => PackagingTransaction.fromJson(e as Map<String, dynamic>)).toList();
+            _packagingHistory = (historyResult['data'] is List<dynamic> ? historyResult['data'] as List<dynamic> : []).map((e) => PackagingTransaction.fromJson(e as Map<String, dynamic>)).toList();
           }
         });
       }

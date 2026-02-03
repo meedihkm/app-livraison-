@@ -27,7 +27,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       final response = await _api.getNotifications(unreadOnly: _showUnreadOnly);
       if (response['success'] == true && mounted) {
         setState(() {
-          _notifications = (response['data'] as List<dynamic>?) ?? [];
+          _notifications = (response['data'] is List<dynamic> ? response['data'] as List<dynamic> : []);
           _isLoading = false;
         });
       }
