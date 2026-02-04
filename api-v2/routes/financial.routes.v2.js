@@ -1,4 +1,4 @@
-// =====================================================
+﻿// =====================================================
 // ROUTES: Financial API v2 - Routes refactorisÃ©es
 // Utilise FinancialService pour toute la logique mÃ©tier
 // Ces routes peuvent coexister avec l'ancienne version
@@ -6,6 +6,7 @@
 
 const express = require("express");
 const router = express.Router();
+const logger = require("../config/logger");
 const { authenticate, authorize } = require("../middleware/auth");
 const financialService = require("../services/financial.service");
 
@@ -34,7 +35,7 @@ router.get(
         meta: { version: "2.0", cached: false },
       });
     } catch (error) {
-      console.error("[Financial v2] Overview error:", error);
+      logger.error("`[Financial v2] Overview error:", error);
       res.status(500).json({ 
         success: false,
         error: error.message || "Erreur serveur" 
@@ -76,7 +77,7 @@ router.get(
         meta: { version: "2.0" },
       });
     } catch (error) {
-      console.error("[Financial v2] Debts error:", error);
+      logger.error("`[Financial v2] Debts error:", error);
       res.status(500).json({ 
         success: false,
         error: error.message || "Erreur serveur" 
@@ -108,7 +109,7 @@ router.get(
         meta: { version: "2.0" },
       });
     } catch (error) {
-      console.error("[Financial v2] Customer debt error:", error);
+      logger.error("`[Financial v2] Customer debt error:", error);
       
       if (error.message === "Client non trouvÃ©") {
         return res.status(404).json({
@@ -157,7 +158,7 @@ router.post(
         meta: { version: "2.0" },
       });
     } catch (error) {
-      console.error("[Financial v2] Record payment error:", error);
+      logger.error("`[Financial v2] Record payment error:", error);
       
       // Erreurs mÃ©tier = 400, Erreurs serveur = 500
       const statusCode = 
@@ -193,7 +194,7 @@ router.get(
         meta: { version: "2.0", count: alerts.length },
       });
     } catch (error) {
-      console.error("[Financial v2] Credit alerts error:", error);
+      logger.error("`[Financial v2] Credit alerts error:", error);
       res.status(500).json({ 
         success: false,
         error: error.message || "Erreur serveur" 
@@ -235,7 +236,7 @@ router.put(
         meta: { version: "2.0" },
       });
     } catch (error) {
-      console.error("[Financial v2] Update credit limit error:", error);
+      logger.error("`[Financial v2] Update credit limit error:", error);
       
       if (error.message === "Client non trouvÃ©") {
         return res.status(404).json({
@@ -274,7 +275,7 @@ router.get(
         meta: { version: "2.0", count: collections.length },
       });
     } catch (error) {
-      console.error("[Financial v2] My collections error:", error);
+      logger.error("`[Financial v2] My collections error:", error);
       res.status(500).json({ 
         success: false,
         error: error.message || "Erreur serveur" 
@@ -284,3 +285,4 @@ router.get(
 );
 
 module.exports = router;
+

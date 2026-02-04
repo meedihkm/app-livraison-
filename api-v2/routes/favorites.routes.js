@@ -1,5 +1,6 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
+const logger = require('../config/logger');
 const { authenticate } = require('../middleware/auth');
 const pool = require('../config/database');
 
@@ -22,7 +23,7 @@ router.get('/my-favorites', authenticate, async (req, res) => {
       data: result.rows
     });
   } catch (error) {
-    console.error('Error fetching favorites:', error);
+    logger.error('Error fetching favorites:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la rÃ©cupÃ©ration des favoris',
@@ -56,7 +57,7 @@ router.get('/preferences', authenticate, async (req, res) => {
       data: result.rows[0]
     });
   } catch (error) {
-    console.error('Error fetching preferences:', error);
+    logger.error('Error fetching preferences:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la rÃ©cupÃ©ration des prÃ©fÃ©rences',
@@ -90,7 +91,7 @@ router.put('/preferences', authenticate, async (req, res) => {
       data: result.rows[0]
     });
   } catch (error) {
-    console.error('Error updating preferences:', error);
+    logger.error('Error updating preferences:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la mise Ã  jour',
@@ -126,7 +127,7 @@ router.post('/detect-pattern', authenticate, async (req, res) => {
       data: patternData
     });
   } catch (error) {
-    console.error('Error detecting pattern:', error);
+    logger.error('Error detecting pattern:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la dÃ©tection',
@@ -166,7 +167,7 @@ router.get('/stats', authenticate, async (req, res) => {
       data: result.rows[0]
     });
   } catch (error) {
-    console.error('Error fetching stats:', error);
+    logger.error('Error fetching stats:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la rÃ©cupÃ©ration des statistiques',
@@ -203,7 +204,7 @@ router.post('/create', authenticate, async (req, res) => {
       data: result.rows[0]
     });
   } catch (error) {
-    console.error('Error creating favorite:', error);
+    logger.error('Error creating favorite:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la crÃ©ation du favori',
@@ -243,7 +244,7 @@ router.post('/:id/use', authenticate, async (req, res) => {
       message: 'Utilisation enregistrÃ©e'
     });
   } catch (error) {
-    console.error('Error recording favorite usage:', error);
+    logger.error('Error recording favorite usage:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de l\'enregistrement',
@@ -293,7 +294,7 @@ router.put('/:id', authenticate, async (req, res) => {
       data: result.rows[0]
     });
   } catch (error) {
-    console.error('Error updating favorite:', error);
+    logger.error('Error updating favorite:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la mise Ã  jour',
@@ -328,7 +329,7 @@ router.delete('/:id', authenticate, async (req, res) => {
       message: 'Favori supprimÃ©'
     });
   } catch (error) {
-    console.error('Error deleting favorite:', error);
+    logger.error('Error deleting favorite:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la suppression',
@@ -338,3 +339,4 @@ router.delete('/:id', authenticate, async (req, res) => {
 });
 
 module.exports = router;
+

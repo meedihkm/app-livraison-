@@ -1,7 +1,8 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 
 const pool = require('../config/database');
+const logger = require('../config/logger');
 const { authenticate, requireAdmin, requireDeliverer } = require('../middleware/auth');
 const { validate, validateUUID } = require('../middleware/validate');
 
@@ -27,12 +28,12 @@ router.post('/location', authenticate, requireDeliverer, validate('updateLocatio
       );
     } catch (historyError) {
       // Silently fail si table n'existe pas encore
-      console.warn('Location history insert failed:', historyError.message);
+      logger.warn('Location history insert failed:', historyError.message);
     }
     
     res.json({ success: true });
   } catch (error) {
-    console.error('Location update error:', error);
+    logger.error('Location update error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -50,7 +51,7 @@ router.get('/deliverers', authenticate, requireAdmin, async (req, res) => {
     
     res.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('Get deliverers locations error:', error);
+    logger.error('Get deliverers locations error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -116,7 +117,7 @@ router.get('/deliveries-map', authenticate, requireAdmin, async (req, res) => {
     
     res.json({ success: true, data: deliveries });
   } catch (error) {
-    console.error('Get deliveries map error:', error);
+    logger.error('Get deliveries map error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -180,7 +181,7 @@ router.get('/deliverer/:id/route', authenticate, requireAdmin, validateUUID('id'
     
     res.json({ success: true, data: route });
   } catch (error) {
-    console.error('Get deliverer route error:', error);
+    logger.error('Get deliverer route error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -210,7 +211,7 @@ router.get('/deliverer/:id/history', authenticate, requireAdmin, validateUUID('i
     
     res.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('Get deliverer history error:', error);
+    logger.error('Get deliverer history error:', error);
     // Retourner tableau vide si table n'existe pas
     res.json({ success: true, data: [] });
   }
@@ -242,7 +243,7 @@ router.get('/deliverer/:id/stats', authenticate, requireAdmin, validateUUID('id'
     
     res.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error('Get deliverer stats error:', error);
+    logger.error('Get deliverer stats error:', error);
     res.json({ success: true, data: [] });
   }
 });
@@ -265,9 +266,10 @@ router.post('/cleanup-history', authenticate, requireAdmin, async (req, res) => 
       deletedCount 
     });
   } catch (error) {
-    console.error('Cleanup history error:', error);
+    logger.error('Cleanup history error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
 module.exports = router;
+

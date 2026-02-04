@@ -1,5 +1,6 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
+const logger = require('../config/logger');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const db = require('../config/database');
 
@@ -23,7 +24,7 @@ router.get('/', authenticate, async (req, res) => {
       data: result.rows
     });
   } catch (error) {
-    console.error('Error fetching notifications:', error);
+    logger.error('Error fetching notifications:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la rÃ©cupÃ©ration des notifications',
@@ -51,7 +52,7 @@ router.get('/unread-count', authenticate, async (req, res) => {
       data: { count: result.rows[0].count }
     });
   } catch (error) {
-    console.error('Error counting unread notifications:', error);
+    logger.error('Error counting unread notifications:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors du comptage',
@@ -87,7 +88,7 @@ router.put('/:id/read', authenticate, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error marking notification as read:', error);
+    logger.error('Error marking notification as read:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la mise Ã  jour',
@@ -116,7 +117,7 @@ router.put('/read-all', authenticate, async (req, res) => {
       data: { count: result.rows[0].count }
     });
   } catch (error) {
-    console.error('Error marking all notifications as read:', error);
+    logger.error('Error marking all notifications as read:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la mise Ã  jour',
@@ -152,7 +153,7 @@ router.delete('/:id', authenticate, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error deleting notification:', error);
+    logger.error('Error deleting notification:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la suppression',
@@ -190,7 +191,7 @@ router.get('/preferences', authenticate, async (req, res) => {
       data: result.rows[0]
     });
   } catch (error) {
-    console.error('Error fetching notification preferences:', error);
+    logger.error('Error fetching notification preferences:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la rÃ©cupÃ©ration des prÃ©fÃ©rences',
@@ -257,7 +258,7 @@ router.put('/preferences', authenticate, async (req, res) => {
       data: result.rows[0]
     });
   } catch (error) {
-    console.error('Error updating notification preferences:', error);
+    logger.error('Error updating notification preferences:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la mise Ã  jour',
@@ -323,7 +324,7 @@ router.post('/send-debt-reminders', authenticate, requireAdmin, async (req, res)
       data: { sent: sentCount, total: clientsResult.rows.length }
     });
   } catch (error) {
-    console.error('Error sending debt reminders:', error);
+    logger.error('Error sending debt reminders:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de l\'envoi des rappels',
@@ -361,7 +362,7 @@ router.get('/stats', authenticate, requireAdmin, async (req, res) => {
       data: result.rows[0]
     });
   } catch (error) {
-    console.error('Error fetching notification stats:', error);
+    logger.error('Error fetching notification stats:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la rÃ©cupÃ©ration des statistiques',
@@ -371,3 +372,4 @@ router.get('/stats', authenticate, requireAdmin, async (req, res) => {
 });
 
 module.exports = router;
+

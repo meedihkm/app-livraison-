@@ -6,6 +6,7 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../config/database");
+const logger = require("../config/logger");
 const { authenticate, authorize } = require("../middleware/auth");
 const { logAudit } = require("../services/audit.service");
 
@@ -19,7 +20,7 @@ function parseNumber(value, defaultValue = 0) {
 }
 
 function logAction(action, details) {
-  console.log(`[FINANCIAL] ${action}:`, JSON.stringify(details, null, 2));
+  logger.info(`[FINANCIAL] ${action}`, details);
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -156,8 +157,7 @@ router.get(
         },
       });
     } catch (error) {
-      logAction("GET_OVERVIEW_ERROR", { error: error.message });
-      console.error("[FINANCIAL] Error:", error);
+      logAction("GET_OVERVIEW_ERROR", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -254,8 +254,7 @@ router.get(
         },
       });
     } catch (error) {
-      logAction("GET_DEBTS_ERROR", { error: error.message });
-      console.error("[FINANCIAL] Error:", error);
+      logAction("GET_DEBTS_ERROR", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -337,8 +336,7 @@ router.get(
         },
       });
     } catch (error) {
-      logAction("GET_CUSTOMER_DEBT_ERROR", { error: error.message });
-      console.error("[FINANCIAL] Error:", error);
+      logAction("GET_CUSTOMER_DEBT_ERROR", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -496,8 +494,7 @@ router.post(
       });
     } catch (error) {
       await client.query("ROLLBACK");
-      logAction("RECORD_PAYMENT_ERROR", { error: error.message });
-      console.error("[FINANCIAL] Error:", error);
+      logAction("RECORD_PAYMENT_ERROR", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur: " + error.message });
     } finally {
       client.release();
@@ -589,8 +586,7 @@ router.get(
         },
       });
     } catch (error) {
-      logAction("GET_CREDIT_STATUS_ERROR", { error: error.message });
-      console.error("[FINANCIAL] Error:", error);
+      logAction("GET_CREDIT_STATUS_ERROR", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -655,8 +651,7 @@ router.put(
         },
       });
     } catch (error) {
-      logAction("UPDATE_CREDIT_LIMIT_ERROR", { error: error.message });
-      console.error("[FINANCIAL] Error:", error);
+      logAction("UPDATE_CREDIT_LIMIT_ERROR", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -738,8 +733,7 @@ router.get(
         data: alerts,
       });
     } catch (error) {
-      logAction("GET_CREDIT_ALERTS_ERROR", { error: error.message });
-      console.error("[FINANCIAL] Error:", error);
+      logAction("GET_CREDIT_ALERTS_ERROR", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -787,8 +781,7 @@ router.get(
         })),
       });
     } catch (error) {
-      logAction("GET_MY_COLLECTIONS_ERROR", { error: error.message });
-      console.error("[FINANCIAL] Error:", error);
+      logAction("GET_MY_COLLECTIONS_ERROR", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
