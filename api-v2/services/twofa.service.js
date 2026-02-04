@@ -1,17 +1,18 @@
 /**
  * Service 2FA TOTP pour AWID Super-Admin
- * Utilise otplib pour gÃ©nÃ©ration et validation de codes TOTP
+ * Utilise otplib pour génération et validation de codes TOTP
  */
 
 const crypto = require('crypto');
+const logger = require('../config/logger');
 
-// Import dynamique pour gÃ©rer le cas oÃ¹ otplib n'est pas installÃ©
+// Import dynamique pour gérer le cas où otplib n'est pas installé
 let authenticator;
 try {
     const { authenticator: auth } = require('otplib');
     authenticator = auth;
 } catch (err) {
-    console.warn('[2FA] Module otplib non disponible - 2FA dÃ©sactivÃ©');
+    logger.warn('[2FA] Module otplib non disponible - 2FA désactivé');
     authenticator = null;
 }
 
@@ -23,16 +24,16 @@ const TOTP_CONFIG = {
     period: 30 // 30 secondes par code
 };
 
-// Nombre de backup codes Ã  gÃ©nÃ©rer
+// Nombre de backup codes à générer
 const BACKUP_CODES_COUNT = 8;
 
 /**
- * GÃ©nÃ¨re un nouveau secret TOTP
+ * Génère un nouveau secret TOTP
  * @returns {Object} { secret, otpauthUrl }
  */
 const generateSecret = (accountName = 'super-admin') => {
     if (!authenticator) {
-        throw new Error('2FA non disponible - otplib non installÃ©');
+        throw new Error('2FA non disponible - otplib non installé');
     }
 
     const secret = authenticator.generateSecret();
@@ -52,14 +53,14 @@ const generateSecret = (accountName = 'super-admin') => {
 };
 
 /**
- * VÃ©rifie un code TOTP
- * @param {string} token - Code Ã  6 chiffres
+ * Vérifie un code TOTP
+ * @param {string} token - Code à 6 chiffres
  * @param {string} secret - Secret TOTP
  * @returns {boolean}
  */
 const verifyToken = (token, secret) => {
     if (!authenticator) {
-        throw new Error('2FA non disponible - otplib non installÃ©');
+        throw new Error('2FA non disponible - otplib non installé');
     }
 
     if (!token || !secret) {
@@ -75,20 +76,20 @@ const verifyToken = (token, secret) => {
             secret
         });
     } catch (err) {
-        console.error('[2FA] Erreur vÃ©rification:', err.message);
+        logger.error('[2FA] Erreur vérification:', err.message);
         return false;
     }
 };
 
 /**
- * GÃ©nÃ¨re des backup codes (usage unique)
- * @returns {Array<string>} Liste de codes de 8 caractÃ¨res
+ * Génère des backup codes (usage unique)
+ * @returns {Array<string>} Liste de codes de 8 caractères
  */
 const generateBackupCodes = () => {
     const codes = [];
 
     for (let i = 0; i < BACKUP_CODES_COUNT; i++) {
-        // Format: XXXX-XXXX (8 caractÃ¨res alphanumÃ©riques)
+        // Format: XXXX-XXXX (8 caractères alphanumériques)
         const part1 = crypto.randomBytes(2).toString('hex').toUpperCase();
         const part2 = crypto.randomBytes(2).toString('hex').toUpperCase();
         codes.push(`${part1}-${part2}`);
@@ -98,9 +99,9 @@ const generateBackupCodes = () => {
 };
 
 /**
- * Hash les backup codes pour stockage sÃ©curisÃ©
+ * Hash les backup codes pour stockage sécurisé
  * @param {Array<string>} codes - Codes en clair
- * @returns {Array<string>} Codes hashÃ©s
+ * @returns {Array<string>} Codes hashés
  */
 const hashBackupCodes = (codes) => {
     return codes.map(code => {
@@ -109,9 +110,9 @@ const hashBackupCodes = (codes) => {
 };
 
 /**
- * VÃ©rifie un backup code contre les codes hashÃ©s
+ * Vérifie un backup code contre les codes hashés
  * @param {string} inputCode - Code saisi par l'utilisateur
- * @param {Array<string>} hashedCodes - Codes hashÃ©s stockÃ©s
+ * @param {Array<string>} hashedCodes - Codes hashés stockés
  * @returns {Object} { valid: boolean, index: number }
  */
 const verifyBackupCode = (inputCode, hashedCodes) => {
@@ -132,7 +133,7 @@ const verifyBackupCode = (inputCode, hashedCodes) => {
 };
 
 /**
- * VÃ©rifie si le module 2FA est disponible
+ * Vérifie si le module 2FA est disponible
  * @returns {boolean}
  */
 const isAvailable = () => {
