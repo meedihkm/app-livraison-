@@ -216,7 +216,6 @@ async function deleteRecurringOrder(id, organizationId) {
  * Liste les commandes rÃ©currentes d'une cafÃ©tÃ©ria
  */
 async function getRecurringOrders(customerId, organizationId) {
-  console.log("ðŸ” getRecurringOrders called - VERSION WITH ::text CAST");
   const result = await pool.query(
     `SELECT ro.*, 
        (SELECT json_agg(json_build_object(
