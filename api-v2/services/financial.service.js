@@ -360,7 +360,7 @@ class FinancialService {
       const ordersQuery = targetOrders?.length > 0
         ? `SELECT id, total, amount_paid, (total - amount_paid) as remaining
             FROM orders
-            WHERE id = ANY($1::text[]) 
+            WHERE id = ANY($1) 
               AND customer_id = $2 
               AND organization_id = $3 
               AND total > amount_paid

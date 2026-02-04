@@ -101,7 +101,7 @@ async function updateRecurringOrder(id, organizationId, data) {
     ) {
       // RÃ©cupÃ©rer les valeurs actuelles si non fournies
       const current = await client.query(
-        `SELECT frequency, day_of_week, day_of_month, time_of_day FROM recurring_orders WHERE id = $1::text AND organization_id = $2::text`,
+        `SELECT frequency, day_of_week, day_of_month, time_of_day FROM recurring_orders WHERE id = $1 AND organization_id = $2`,
         [id, organizationId],
       );
       if (current.rows.length === 0) {
@@ -164,7 +164,7 @@ async function updateRecurringOrder(id, organizationId, data) {
     updates.push("updated_at = NOW()");
 
     const result = await client.query(
-      `UPDATE recurring_orders SET ${updates.join(", ")} WHERE id = $1::text AND organization_id = $2::text RETURNING *`,
+      `UPDATE recurring_orders SET ${updates.join(", ")} WHERE id = $1 AND organization_id = $2 RETURNING *`,
       params,
     );
 
@@ -206,7 +206,7 @@ async function updateRecurringOrder(id, organizationId, data) {
  */
 async function deleteRecurringOrder(id, organizationId) {
   const result = await pool.query(
-    `DELETE FROM recurring_orders WHERE id = $1::text AND organization_id = $2::text RETURNING id`,
+    `DELETE FROM recurring_orders WHERE id = $1 AND organization_id = $2 RETURNING id`,
     [id, organizationId],
   );
   return result.rows.length > 0;
@@ -228,7 +228,7 @@ async function getRecurringOrders(customerId, organizationId) {
        JOIN products p ON roi.product_id = p.id
        WHERE roi.recurring_order_id = ro.id) as items
      FROM recurring_orders ro
-     WHERE ro.customer_id::text = $1::text AND ro.organization_id::text = $2::text
+     WHERE ro.customer_id = $1 AND ro.organization_id = $2
      ORDER BY ro.created_at DESC`,
     [customerId, organizationId],
   );
@@ -248,10 +248,10 @@ async function getRecurringOrderById(id, organizationId) {
          'productName', p.name,
          'quantity', roi.quantity
        )) FROM recurring_order_items roi 
-       JOIN products p ON roi.product_id::text = p.id::text
+       JOIN products p ON roi.product_id = p.id
        WHERE roi.recurring_order_id = ro.id) as items
      FROM recurring_orders ro
-     WHERE ro.id = $1::text AND ro.organization_id = $2::text`,
+     WHERE ro.id = $1 AND ro.organization_id = $2`,
     [id, organizationId],
   );
 
@@ -265,7 +265,7 @@ async function toggleRecurringOrder(id, organizationId) {
   const result = await pool.query(
     `UPDATE recurring_orders 
      SET active = NOT active, updated_at = NOW()
-     WHERE id = $1::text AND organization_id = $2::text
+     WHERE id = $1 AND organization_id = $2
      RETURNING *`,
     [id, organizationId],
   );
@@ -283,7 +283,7 @@ async function getAllRecurringOrders(organizationId, options = {}) {
       (SELECT COUNT(*) FROM recurring_order_items WHERE recurring_order_id = ro.id) as items_count
     FROM recurring_orders ro
     JOIN users u ON ro.customer_id = u.id
-    WHERE ro.organization_id = $1::text
+    WHERE ro.organization_id = $1
   `;
   const params = [organizationId];
 

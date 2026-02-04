@@ -254,7 +254,7 @@ router.post(
         `INSERT INTO recurring_orders (
         organization_id, customer_id, name, frequency, 
         day_of_week, day_of_month, time_of_day, active
-      ) VALUES ($1::text, $2::text, $3, $4, $5, $6, $7, true)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, true)
       RETURNING id, created_at`,
         [
           req.user.organization_id,
@@ -274,7 +274,7 @@ router.post(
         await pool.query(
           `INSERT INTO recurring_order_items (
           recurring_order_id, product_id, quantity
-        ) VALUES ($1::text, $2::text, $3)`,
+        ) VALUES ($1, $2, $3)`,
           [orderId, item.productId, item.quantity],
         );
       }
@@ -419,7 +419,7 @@ router.put(
           await pool.query(
             `INSERT INTO recurring_order_items (
             recurring_order_id, product_id, quantity
-          ) VALUES ($1::text, $2::text, $3)`,
+          ) VALUES ($1, $2, $3)`,
             [req.params.id, item.productId, item.quantity],
           );
         }
