@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const router = express.Router();
 
 const pool = require('../config/database');
+const logger = require('../config/logger');
 const { authenticateSuperAdmin } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 const { superAdminLimiter } = require('../middleware/rateLimit');
@@ -109,7 +110,7 @@ router.delete('/organizations/:id', authenticateSuperAdmin, async (req, res) => 
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Delete org error:', error);
+    logger.error('Delete org error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erreur serveur: ' + error.message });
   }
 });
@@ -146,7 +147,7 @@ router.patch('/organizations/:id/status', authenticateSuperAdmin, validate('togg
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Toggle org status error:', error);
+    logger.error('Toggle org status error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -158,7 +159,7 @@ router.get('/audit-logs', authenticateSuperAdmin, async (req, res) => {
     const logs = await getAllAuditLogs({ limit, offset });
     res.json({ success: true, data: logs });
   } catch (error) {
-    console.error('Super admin audit logs error:', error);
+    logger.error('Super admin audit logs error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -240,7 +241,7 @@ router.post('/2fa/setup', superAdminLimiter, authenticateSuperAdmin, async (req,
       }
     });
   } catch (error) {
-    console.error('2FA setup error:', error);
+    logger.error('2FA setup error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erreur configuration 2FA' });
   }
 });
@@ -284,8 +285,8 @@ router.post('/2fa/verify', superAdminLimiter, authenticateSuperAdmin, async (req
       message: '2FA activÃ© avec succÃ¨s'
     });
   } catch (error) {
-    console.error('2FA verify error:', error);
-    res.status(500).json({ error: 'Erreur vÃ©rification 2FA' });
+    logger.error('2FA verify error:', { error: error.message, stack: error.stack });
+    res.status(500).json({ error: 'Erreur vérification 2FA' });
   }
 });
 
@@ -336,8 +337,8 @@ router.post('/2fa/disable', superAdminLimiter, authenticateSuperAdmin, async (re
       message: '2FA dÃ©sactivÃ©'
     });
   } catch (error) {
-    console.error('2FA disable error:', error);
-    res.status(500).json({ error: 'Erreur dÃ©sactivation 2FA' });
+    logger.error('2FA disable error:', { error: error.message, stack: error.stack });
+    res.status(500).json({ error: 'Erreur désactivation 2FA' });
   }
 });
 

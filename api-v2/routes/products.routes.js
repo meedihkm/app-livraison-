@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const pool = require('../config/database');
+const logger = require('../config/logger');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const { validate, validateUUID } = require('../middleware/validate');
 const { logAudit } = require('../services/audit.service');
@@ -134,7 +135,7 @@ router.put('/:id/reorder', authenticate, requireAdmin, validateUUID('id'), valid
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Reorder error:', error.message);
+    logger.error('Reorder error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -202,9 +203,9 @@ router.delete('/:id', authenticate, requireAdmin, validateUUID('id'), async (req
 
     await cacheService.invalidate(`cache:products:${req.user.organization_id}*`);
 
-    res.json({ success: true, message: 'Produit supprimÃ© dÃ©finitivement' });
+    res.json({ success: true, message: 'Produit supprimé définitivement' });
   } catch (error) {
-    console.error('Delete product error:', error);
+    logger.error('Delete product error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

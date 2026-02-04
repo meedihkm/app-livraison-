@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const router = express.Router();
 
 const pool = require("../config/database");
+const logger = require("../config/logger");
 const { authenticate, requireAdmin } = require("../middleware/auth");
 const { validate, validateUUID } = require("../middleware/validate");
 const { logAudit } = require("../services/audit.service");
@@ -99,7 +100,7 @@ router.get(
       );
       res.json({ success: true, data: result.rows });
     } catch (error) {
-      console.error("Get clients locations error:", error);
+      logger.error("Get clients locations error:", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -200,7 +201,7 @@ router.post(
 
       res.json({ success: true, data: result.rows[0] });
     } catch (error) {
-      console.error("Create user error:", error.message);
+      logger.error("Create user error:", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -272,7 +273,7 @@ router.delete(
 
       res.json({ success: true });
     } catch (error) {
-      console.error("Delete user error:", error.message);
+      logger.error("Delete user error:", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur: " + error.message });
     }
   },
@@ -377,7 +378,7 @@ router.put(
             lng = parseFloat(data[0].lon);
           }
         } catch (geoError) {
-          console.error("Geocoding error:", geoError.message);
+          logger.error("Geocoding error:", { error: geoError.message, stack: geoError.stack });
         }
       }
 
@@ -401,7 +402,7 @@ router.put(
         data: { address, latitude: lat, longitude: lng },
       });
     } catch (error) {
-      console.error("Update address error:", error.message);
+      logger.error("Update address error:", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -450,7 +451,7 @@ router.put(
         data: { creditLimit: result.rows[0].credit_limit },
       });
     } catch (error) {
-      console.error("Update credit limit error:", error.message);
+      logger.error("Update credit limit error:", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },

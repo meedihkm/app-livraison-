@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const pool = require("../config/database");
+const logger = require("../config/logger");
 const {
   authenticate,
   requireAdmin,
@@ -184,7 +185,7 @@ router.get("/", authenticate, async (req, res) => {
 
     res.json(getPagingData(orders, total, page, limit));
   } catch (error) {
-    console.error("Orders error:", error);
+    logger.error("Orders error:", { error: error.message, stack: error.stack });
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
@@ -205,7 +206,7 @@ router.get("/my", authenticate, async (req, res) => {
 
     res.json({ success: true, data: orders });
   } catch (error) {
-    console.error("My orders error:", error);
+    logger.error("My orders error:", { error: error.message, stack: error.stack });
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
@@ -259,7 +260,7 @@ router.get("/kitchen", authenticate, requireKitchen, async (req, res) => {
 
     res.json({ success: true, data: orders });
   } catch (error) {
-    console.error("Kitchen orders error:", error);
+    logger.error("Kitchen orders error:", { error: error.message, stack: error.stack });
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
@@ -386,19 +387,20 @@ router.post("/", authenticate, validate("createOrder"), async (req, res) => {
         if (limit > 0 && currentDebt >= limit * 0.8) {
           // Notification admin via service (ne bloque pas la commande)
           const ratio = Math.round((currentDebt / limit) * 100);
-          console.log(
+          logger.warn(
             `[CREDIT_ALERT] Customer ${req.user.id} at ${ratio}% of credit limit`,
+            { customerId: req.user.id, ratio, debt: currentDebt, limit }
           );
         }
       }
     } catch (err) {
-      console.error("[CREDIT_CHECK] Error:", err.message);
+      logger.error("[CREDIT_CHECK] Error:", { error: err.message, stack: err.stack });
     }
 
     const orderItems = await getOrderItems(order.id);
     res.json({ success: true, data: { ...order, items: orderItems } });
   } catch (error) {
-    console.error("Create order error:", error);
+    logger.error("Create order error:", { error: error.message, stack: error.stack });
     res.status(500).json({ error: "Erreur serveur: " + error.message });
   }
 });
@@ -472,13 +474,16 @@ router.put(
 
           if (limit > 0 && currentDebt >= limit * 0.8) {
             const ratio = Math.round((currentDebt / limit) * 100);
-            console.log(
-              `[CREDIT_ALERT] Customer ${req.user.id} at ${ratio}% of credit limit`,
-            );
+            logger.warn(`[CREDIT_ALERT] Customer ${req.user.id} at ${ratio}% of credit limit`, {
+              customerId: req.user.id,
+              ratio,
+              debt: currentDebt,
+              limit
+            });
           }
         }
       } catch (err) {
-        console.error("[CREDIT_CHECK] Error:", err.message);
+        logger.error("[CREDIT_CHECK] Error:", { error: err.message, stack: err.stack });
       }
 
       const updatedItems = await getOrderItems(req.params.id);
@@ -487,7 +492,7 @@ router.put(
         data: { id: req.params.id, total, items: updatedItems },
       });
     } catch (error) {
-      console.error("Update order error:", error);
+      logger.error("Update order error:", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -573,7 +578,7 @@ router.post(
 
       res.json({ success: true, data: deliveryResult.rows[0] });
     } catch (error) {
-      console.error("Assign error:", error);
+      logger.error("Assign error:", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -627,7 +632,7 @@ router.put(
 
       res.json({ success: true });
     } catch (error) {
-      console.error("Kitchen status error:", error);
+      logger.error("Kitchen status error:", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },

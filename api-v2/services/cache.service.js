@@ -1,4 +1,5 @@
 const redis = require('../config/redis');
+const logger = require('../config/logger');
 
 /**
  * Service de Cache Wrapper
@@ -71,7 +72,7 @@ class CacheService {
                 await redis.del(pattern);
             }
         } catch (error) {
-            console.error('Cache invalidation error:', error.message);
+            logger.error('Cache invalidation error:', { error: error.message, stack: error.stack });
         }
     }
 

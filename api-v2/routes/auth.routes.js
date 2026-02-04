@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 
 const pool = require('../config/database');
+const logger = require('../config/logger');
 const { jwtSecret, accessTokenExpiry } = require('../config/jwt');
 const { authenticate } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
@@ -171,7 +172,7 @@ router.post('/login', loginLimiter, validate('login'), async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error.message);
+    logger.error('Login error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -249,7 +250,7 @@ router.post('/refresh', validate('refreshToken'), async (req, res) => {
       expiresIn: 900
     });
   } catch (error) {
-    console.error('Refresh error:', error.message);
+    logger.error('Refresh error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -294,7 +295,7 @@ router.post('/logout', authenticate, async (req, res) => {
     await logAudit('LOGOUT', req.user.id, req.user.organization_id, {}, req);
     res.json({ success: true });
   } catch (error) {
-    console.error('Logout error:', error.message);
+    logger.error('Logout error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -306,7 +307,7 @@ router.post('/logout-all', authenticate, async (req, res) => {
     await logAudit('LOGOUT_ALL_DEVICES', req.user.id, req.user.organization_id, {}, req);
     res.json({ success: true });
   } catch (error) {
-    console.error('Logout all error:', error.message);
+    logger.error('Logout all error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

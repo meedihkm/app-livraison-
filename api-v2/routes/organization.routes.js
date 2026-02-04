@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const pool = require('../config/database');
+const logger = require('../config/logger');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 const { logAudit } = require('../services/audit.service');
@@ -34,7 +35,7 @@ router.get('/settings', authenticate, cacheMiddleware(600), async (req, res) => 
       }
     });
   } catch (error) {
-    console.error('Get org settings error:', error);
+    logger.error('Get org settings error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -57,7 +58,7 @@ router.put('/settings', authenticate, requireAdmin, validate('updateOrgSettings'
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Update org settings error:', error);
+    logger.error('Update org settings error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -86,7 +87,7 @@ router.get('/daily', authenticate, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Daily financial error:', error);
+    logger.error('Daily financial error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -120,7 +121,7 @@ router.get('/debts', authenticate, async (req, res) => {
 
     res.json({ success: true, data });
   } catch (error) {
-    console.error('Debts error:', error);
+    logger.error('Debts error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -135,7 +136,7 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
 
     res.json(getPagingData(data, total, page, limit));
   } catch (error) {
-    console.error('Audit logs error:', error);
+    logger.error('Audit logs error:', { error: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

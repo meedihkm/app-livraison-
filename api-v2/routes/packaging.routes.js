@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 
+const logger = require('../config/logger');
 const { authenticate, requireAdmin, authorize } = require('../middleware/auth');
 const { validate, validateUUID } = require('../middleware/validate');
 const { logAudit } = require('../services/audit.service');
@@ -24,7 +25,7 @@ router.get('/types', authenticate, async (req, res) => {
 
         res.json({ success: true, data: types });
     } catch (error) {
-        console.error('Error fetching packaging types:', error);
+        logger.error('Error fetching packaging types:', { error: error.message, stack: error.stack });
         res.status(500).json({ error: 'Erreur serveur' });
     }
 });
@@ -59,7 +60,7 @@ router.post('/types', authenticate, requireAdmin, async (req, res) => {
 
         res.status(201).json({ success: true, data: type });
     } catch (error) {
-        console.error('Error creating packaging type:', error);
+        logger.error('Error creating packaging type:', { error: error.message, stack: error.stack });
         res.status(500).json({ error: 'Erreur serveur' });
     }
 });
@@ -93,7 +94,7 @@ router.put('/types/:id', authenticate, requireAdmin, validateUUID('id'), async (
 
         res.json({ success: true, data: type });
     } catch (error) {
-        console.error('Error updating packaging type:', error);
+        logger.error('Error updating packaging type:', { error: error.message, stack: error.stack });
         res.status(500).json({ error: 'Erreur serveur' });
     }
 });
@@ -137,7 +138,7 @@ router.post('/deposits', authenticate, authorize(['admin', 'deliverer']), async 
 
         res.status(201).json({ success: true, data: deposit });
     } catch (error) {
-        console.error('Error recording deposit:', error);
+        logger.error('Error recording deposit:', { error: error.message, stack: error.stack });
         res.status(error.message === 'Type de consigne invalide' ? 400 : 500)
             .json({ error: error.message || 'Erreur serveur' });
     }
@@ -158,7 +159,7 @@ router.get('/customers/:id/balance', authenticate, validateUUID('id'), async (re
 
         res.json({ success: true, data: balance });
     } catch (error) {
-        console.error('Error fetching customer balance:', error);
+        logger.error('Error fetching customer balance:', { error: error.message, stack: error.stack });
         res.status(500).json({ error: 'Erreur serveur' });
     }
 });
@@ -179,7 +180,7 @@ router.get('/customers/:id/history', authenticate, validateUUID('id'), async (re
 
         res.json({ success: true, data: history });
     } catch (error) {
-        console.error('Error fetching deposit history:', error);
+        logger.error('Error fetching deposit history:', { error: error.message, stack: error.stack });
         res.status(500).json({ error: 'Erreur serveur' });
     }
 });
@@ -194,7 +195,7 @@ router.get('/summary', authenticate, requireAdmin, async (req, res) => {
 
         res.json({ success: true, data: summary });
     } catch (error) {
-        console.error('Error fetching organization summary:', error);
+        logger.error('Error fetching organization summary:', { error: error.message, stack: error.stack });
         res.status(500).json({ error: 'Erreur serveur' });
     }
 });

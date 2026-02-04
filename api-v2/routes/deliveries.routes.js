@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const pool = require("../config/database");
+const logger = require("../config/logger");
 const { authenticate, requireAdmin } = require("../middleware/auth");
 const { validate, validateUUID } = require("../middleware/validate");
 const { logAudit } = require("../services/audit.service");
@@ -174,7 +175,7 @@ router.get("/", authenticate, async (req, res) => {
 
     res.json(getPagingData(deliveries, total, page, limit));
   } catch (error) {
-    console.error("Deliveries error:", error);
+    logger.error("Deliveries error:", { error: error.message, stack: error.stack });
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
@@ -234,7 +235,7 @@ router.get("/route", authenticate, async (req, res) => {
 
     res.json({ success: true, data: deliveries });
   } catch (error) {
-    console.error("Route error:", error);
+    logger.error("Route error:", { error: error.message, stack: error.stack });
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
@@ -270,7 +271,7 @@ router.get("/history", authenticate, async (req, res) => {
 
     res.json({ success: true, data: deliveries });
   } catch (error) {
-    console.error("History error:", error);
+    logger.error("History error:", { error: error.message, stack: error.stack });
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
@@ -487,7 +488,7 @@ router.put(
 
       res.json({ success: true });
     } catch (error) {
-      console.error("Delivery status error:", error);
+      logger.error("Delivery status error:", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur: " + error.message });
     }
   },
@@ -536,7 +537,7 @@ router.post(
 
       res.json({ success: true });
     } catch (error) {
-      console.error("Location update error:", error);
+      logger.error("Location update error:", { error: error.message, stack: error.stack });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -555,7 +556,7 @@ router.get("/locations", authenticate, requireAdmin, async (req, res) => {
 
     res.json({ success: true, data: result.rows });
   } catch (error) {
-    console.error("Get locations error:", error);
+    logger.error("Get locations error:", { error: error.message, stack: error.stack });
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
@@ -593,7 +594,7 @@ router.get(
 
       res.json({ success: true, data: result.rows });
     } catch (error) {
-      console.error("Get history error:", error);
+      logger.error("Get history error:", { error: error.message, stack: error.stack });
       // Retourner tableau vide si table n'existe pas
       res.json({ success: true, data: [] });
     }

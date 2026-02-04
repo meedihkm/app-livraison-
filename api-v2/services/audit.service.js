@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const logger = require('../config/logger');
 
 /**
  * Enregistre une action dans les logs d'audit
@@ -18,7 +19,7 @@ async function logAudit(action, userId, organizationId, details = {}, req = null
       [userId, organizationId, action, JSON.stringify(details), ip.substring(0, 45), userAgent.substring(0, 255)]
     );
   } catch (error) {
-    console.error('Audit log error:', error.message);
+    logger.error('Audit log error:', { error: error.message, stack: error.stack });
   }
 }
 

@@ -1,6 +1,7 @@
 const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs').promises;
+const logger = require('../config/logger');
 
 /**
  * Service de traitement d'images
@@ -52,7 +53,7 @@ async function processImage(buffer, filename, outputDir) {
 
         return results; // { original: '...', thumbnail: '...', ... }
     } catch (error) {
-        console.error('Image processing error:', error);
+        logger.error('Image processing error:', { error: error.message, stack: error.stack });
         throw new Error('Erreur lors du traitement de l\'image');
     }
 }
@@ -68,7 +69,7 @@ async function deleteImages(variants, dir) {
     const deletions = Object.values(variants).map(filename => {
         if (!filename) return Promise.resolve();
         return fs.unlink(path.join(dir, filename)).catch(err => {
-            console.warn(`Failed to delete image ${filename}:`, err.message);
+            logger.warn(`Failed to delete image ${filename}:`, { error: err.message });
         });
     });
 
