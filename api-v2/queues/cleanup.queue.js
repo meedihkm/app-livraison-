@@ -1,4 +1,5 @@
 const { Queue } = require('bullmq');
+const logger = require('../config/logger');
 const { connection, defaultJobOptions } = require('../config/queue.config');
 
 const cleanupQueue = new Queue('cleanup', {
@@ -24,6 +25,6 @@ async function setupRecurringJobs() {
 }
 
 // Initialiser les jobs rÃ©currents (Ã  appeler au dÃ©marrage du worker ou de l'app)
-setupRecurringJobs().catch(console.error);
+setupRecurringJobs().catch(err => logger.error('[CLEANUP] Erreur initialisation jobs récurrents:', { error: err.message }));
 
 module.exports = cleanupQueue;

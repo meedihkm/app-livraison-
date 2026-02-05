@@ -37,7 +37,7 @@ const httpsRedirect = (req, res, next) => {
     const httpsUrl = `https://${host}${req.originalUrl}`;
 
     // Redirection 301 (permanente)
-    console.log(`[HTTPS] Redirection: ${req.protocol}://${host}${req.originalUrl} â†’ ${httpsUrl}`);
+    logger.info(`[HTTPS] Redirection: ${req.protocol}://${host}${req.originalUrl} â†’ ${httpsUrl}`);
     return res.redirect(301, httpsUrl);
 };
 

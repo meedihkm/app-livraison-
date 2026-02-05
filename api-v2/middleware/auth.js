@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const logger = require('../config/logger');
 const crypto = require('crypto');
 const pool = require('../config/database');
 const { jwtSecret, superAdminKey } = require('../config/jwt');
@@ -42,7 +43,7 @@ const authenticate = async (req, res, next) => {
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ error: 'Token invalide' });
     }
-    console.error('Auth error:', error.message);
+    logger.error('Auth error:', error.message);
     res.status(401).json({ error: 'Erreur d\'authentification' });
   }
 };

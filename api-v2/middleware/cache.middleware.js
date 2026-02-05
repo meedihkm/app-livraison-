@@ -1,4 +1,5 @@
 const cacheService = require('../services/cache.service');
+const logger = require('../config/logger');
 const { cacheHitsTotal, cacheMissesTotal } = require('./metrics.middleware');
 
 /**
@@ -54,7 +55,7 @@ const cacheMiddleware = (ttlSeconds = 300, keyPrefix = null) => {
 
             next();
         } catch (error) {
-            console.error('Cache middleware error:', error);
+            logger.error('Cache middleware error:', error);
             next(); // Continuer sans cache en cas d'erreur
         }
     };

@@ -23,7 +23,7 @@ const getWhitelistedOrigins = () => {
 
   // En production sans ALLOWED_ORIGINS, permettre les apps mobiles (pas d'origin)
   // et les domaines Vercel par dÃ©faut
-  console.log('[CORS] Mode production - Apps mobiles et Vercel autorisÃ©s par dÃ©faut');
+  logger.info('[CORS] Mode production - Apps mobiles et Vercel autorisÃ©s par dÃ©faut');
   return [
     'https://app-livraison-.vercel.app',
     'https://awid.vercel.app',
@@ -59,7 +59,7 @@ const corsOptions = {
 
     // Pour les autres origins, permettre quand mÃªme (moins restrictif pour les apps mobiles)
     // Les apps mobiles peuvent avoir des origins variÃ©s
-    console.log(`[CORS] Origine autorisÃ©e (permissif): ${origin}`);
+    logger.info(`[CORS] Origine autorisÃ©e (permissif): ${origin}`);
     return callback(null, true);
   },
 

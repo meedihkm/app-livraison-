@@ -1,11 +1,12 @@
 const { z } = require('zod');
+const logger = require('../config/logger');
 const schemas = require('../schemas/validation');
 
 // Middleware de validation du body avec Zod
 const validate = (schemaName) => (req, res, next) => {
   const schema = schemas[schemaName];
   if (!schema) {
-    console.error(`Schema '${schemaName}' non trouvÃ©`);
+    logger.error(`Schema '${schemaName}' non trouvÃ©`);
     return res.status(500).json({ error: 'Erreur de configuration serveur' });
   }
   
