@@ -157,7 +157,10 @@ router.get(
         },
       });
     } catch (error) {
-      logAction("GET_OVERVIEW_ERROR", { error: error.message, stack: error.stack });
+      logAction("GET_OVERVIEW_ERROR", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -238,10 +241,11 @@ router.get(
       res.json({
         success: true,
         data: result.rows.map((row) => ({
+          id: row.customer_id, // Ajouté pour compatibilité mobile
           customerId: row.customer_id,
-          name: row.name,
-          email: row.email,
-          phone: row.phone,
+          name: row.name || "", // Garantir non-null
+          email: row.email || "", // Garantir non-null
+          phone: row.phone || "", // Garantir non-null
           unpaidOrders: parseInt(row.unpaid_orders),
           totalDebt: parseNumber(row.total_debt),
           lastOrderDate: row.last_order_date,
@@ -254,7 +258,10 @@ router.get(
         },
       });
     } catch (error) {
-      logAction("GET_DEBTS_ERROR", { error: error.message, stack: error.stack });
+      logAction("GET_DEBTS_ERROR", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -336,7 +343,10 @@ router.get(
         },
       });
     } catch (error) {
-      logAction("GET_CUSTOMER_DEBT_ERROR", { error: error.message, stack: error.stack });
+      logAction("GET_CUSTOMER_DEBT_ERROR", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -494,7 +504,10 @@ router.post(
       });
     } catch (error) {
       await client.query("ROLLBACK");
-      logAction("RECORD_PAYMENT_ERROR", { error: error.message, stack: error.stack });
+      logAction("RECORD_PAYMENT_ERROR", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur: " + error.message });
     } finally {
       client.release();
@@ -586,7 +599,10 @@ router.get(
         },
       });
     } catch (error) {
-      logAction("GET_CREDIT_STATUS_ERROR", { error: error.message, stack: error.stack });
+      logAction("GET_CREDIT_STATUS_ERROR", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -651,7 +667,10 @@ router.put(
         },
       });
     } catch (error) {
-      logAction("UPDATE_CREDIT_LIMIT_ERROR", { error: error.message, stack: error.stack });
+      logAction("UPDATE_CREDIT_LIMIT_ERROR", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -733,7 +752,10 @@ router.get(
         data: alerts,
       });
     } catch (error) {
-      logAction("GET_CREDIT_ALERTS_ERROR", { error: error.message, stack: error.stack });
+      logAction("GET_CREDIT_ALERTS_ERROR", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -773,15 +795,20 @@ router.get(
       res.json({
         success: true,
         data: result.rows.map((row) => ({
+          created_at: row.created_at, // Format snake_case pour mobile
           createdAt: row.created_at,
-          customerId: row.customer_id,
-          clientName: row.client_name,
+          customerId: row.customer_id || "",
+          client_name: row.client_name || "", // Format snake_case pour mobile
+          clientName: row.client_name || "",
           amount: parseNumber(row.amount),
-          mode: row.mode,
+          mode: row.mode || "cash",
         })),
       });
     } catch (error) {
-      logAction("GET_MY_COLLECTIONS_ERROR", { error: error.message, stack: error.stack });
+      logAction("GET_MY_COLLECTIONS_ERROR", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
