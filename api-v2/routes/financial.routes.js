@@ -33,7 +33,7 @@ router.get(
   "/overview",
   authenticate,
   authorize(["admin"]),
-  cacheMiddleware(300),
+  cacheMiddleware(30),
   async (req, res) => {
     logAction("GET_OVERVIEW", { userId: req.user.id });
 
@@ -183,7 +183,7 @@ router.get(
   "/debts",
   authenticate,
   authorize(["admin", "deliverer"]),
-  cacheMiddleware(300),
+  cacheMiddleware(30),
   async (req, res) => {
     logAction("GET_DEBTS", { userId: req.user.id, query: req.query });
 
@@ -835,7 +835,7 @@ router.get(
   "/payments/history",
   authenticate,
   authorize(["admin"]),
-  cacheMiddleware(300),
+  cacheMiddleware(30),
   async (req, res) => {
     logAction("GET_PAYMENTS_HISTORY", {
       userId: req.user.id,
