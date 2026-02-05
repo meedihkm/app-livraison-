@@ -8,7 +8,7 @@ const router = express.Router();
 const pool = require("../config/database");
 const logger = require("../config/logger");
 const { authenticate, authorize } = require("../middleware/auth");
-const { validateUUID } = require("../middleware/validate");
+const { validate, validateUUID } = require("../middleware/validate");
 const { logAudit } = require("../services/audit.service");
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -115,7 +115,10 @@ router.get("/", authenticate, authorize(["customer"]), async (req, res) => {
       data: result.rows.map(formatRecurringOrder),
     });
   } catch (error) {
-    logAction("GET_RECURRING_ORDERS_ERROR", { error: error.message, stack: error.stack });
+    logAction("GET_RECURRING_ORDERS_ERROR", {
+      error: error.message,
+      stack: error.stack,
+    });
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
@@ -178,7 +181,10 @@ router.get(
         data: formatRecurringOrder(order),
       });
     } catch (error) {
-      logAction("GET_RECURRING_ORDER_ERROR", { error: error.message, stack: error.stack });
+      logAction("GET_RECURRING_ORDER_ERROR", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -193,6 +199,7 @@ router.post(
   "/",
   authenticate,
   authorize(["customer", "admin"]),
+  validate("createRecurringOrder"),
   async (req, res) => {
     const startTime = Date.now();
     logAction("CREATE_RECURRING_ORDER", {
@@ -317,7 +324,10 @@ router.post(
         data: formatRecurringOrder(completeOrder.rows[0]),
       });
     } catch (error) {
-      logAction("CREATE_RECURRING_ORDER_ERROR", { error: error.message, stack: error.stack });
+      logAction("CREATE_RECURRING_ORDER_ERROR", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -333,6 +343,7 @@ router.put(
   authenticate,
   authorize(["customer", "admin"]),
   validateUUID("id"),
+  validate("updateRecurringOrder"),
   async (req, res) => {
     logAction("UPDATE_RECURRING_ORDER", {
       orderId: req.params.id,
@@ -453,7 +464,10 @@ router.put(
         data: formatRecurringOrder(updated.rows[0]),
       });
     } catch (error) {
-      logAction("UPDATE_RECURRING_ORDER_ERROR", { error: error.message, stack: error.stack });
+      logAction("UPDATE_RECURRING_ORDER_ERROR", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -528,7 +542,10 @@ router.delete(
         message: "Commande rÃ©currente supprimÃ©e",
       });
     } catch (error) {
-      logAction("DELETE_RECURRING_ORDER_ERROR", { error: error.message, stack: error.stack });
+      logAction("DELETE_RECURRING_ORDER_ERROR", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -618,7 +635,10 @@ router.post(
         data: formatRecurringOrder(updated.rows[0]),
       });
     } catch (error) {
-      logAction("TOGGLE_RECURRING_ORDER_ERROR", { error: error.message, stack: error.stack });
+      logAction("TOGGLE_RECURRING_ORDER_ERROR", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -679,7 +699,10 @@ router.get(
         })),
       });
     } catch (error) {
-      logAction("GET_ALL_RECURRING_ORDERS_ERROR", { error: error.message, stack: error.stack });
+      logAction("GET_ALL_RECURRING_ORDERS_ERROR", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },

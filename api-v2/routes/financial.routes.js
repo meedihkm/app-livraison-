@@ -8,6 +8,7 @@ const router = express.Router();
 const pool = require("../config/database");
 const logger = require("../config/logger");
 const { authenticate, authorize } = require("../middleware/auth");
+const { validate, validateUUID } = require("../middleware/validate");
 const { logAudit } = require("../services/audit.service");
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -366,6 +367,7 @@ router.post(
   "/payments",
   authenticate,
   authorize(["admin", "deliverer"]),
+  validate("recordPayment"),
   async (req, res) => {
     logAction("RECORD_PAYMENT", { userId: req.user.id, body: req.body });
 
@@ -622,6 +624,8 @@ router.put(
   "/credit/:customerId/limit",
   authenticate,
   authorize(["admin"]),
+  validateUUID("customerId"),
+  validate("updateCreditLimit"),
   async (req, res) => {
     logAction("UPDATE_CREDIT_LIMIT", {
       customerId: req.params.customerId,
