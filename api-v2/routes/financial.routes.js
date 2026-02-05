@@ -89,13 +89,17 @@ router.get(
         COALESCE(SUM(o.total), 0) as total_revenue,
         COALESCE(SUM(o.amount_paid), 0) as total_paid,
         COALESCE(SUM(o.total - o.amount_paid), 0) as total_debt,
-        COUNT(*) as order_count
+        COUNT(o.id) as order_count
       FROM users u
-      JOIN orders o ON u.id = o.customer_id
-      WHERE o.organization_id = $1
+      LEFT JOIN orders o ON u.id = o.customer_id 
+        AND o.organization_id = $1
         AND o.status != 'cancelled'
         ${dateFilter}
+      WHERE u.organization_id = $1
+        AND u.role = 'customer'
+        AND u.active = true
       GROUP BY u.id, u.name, u.phone
+      HAVING COUNT(o.id) > 0
       ORDER BY total_revenue DESC
       LIMIT 5`,
         params,
@@ -107,15 +111,17 @@ router.get(
         u.id,
         u.name,
         COUNT(d.id) as total_deliveries,
-        COUNT(*) FILTER (WHERE d.status = 'delivered') as delivered_count,
+        COUNT(d.id) FILTER (WHERE d.status = 'delivered') as delivered_count,
         COALESCE(SUM(o.amount_paid) FILTER (WHERE d.status = 'delivered'), 0) as amount_collected
       FROM users u
-      LEFT JOIN deliveries d ON u.id = d.deliverer_id AND d.organization_id = $1
+      LEFT JOIN deliveries d ON u.id = d.deliverer_id 
+        AND d.organization_id = $1
+        ${dateFrom ? `AND d.created_at >= $${paramIndex}` : ""}
+        ${dateTo ? `AND d.created_at <= $${paramIndex + (dateFrom ? 1 : 0)}` : ""}
       LEFT JOIN orders o ON d.order_id = o.id
       WHERE u.role = 'deliverer'
         AND u.organization_id = $1
         AND u.active = true
-        ${dateFilter.replace(/o\./g, "o.")}
       GROUP BY u.id, u.name
       ORDER BY delivered_count DESC`,
         params,
@@ -806,6 +812,122 @@ router.get(
       });
     } catch (error) {
       logAction("GET_MY_COLLECTIONS_ERROR", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// ====================================================================
+// GET /api/financial/payments/history
+// Historique complet des paiements (Admin)
+// ====================================================================
+router.get(
+  "/payments/history",
+  authenticate,
+  authorize(["admin"]),
+  async (req, res) => {
+    logAction("GET_PAYMENTS_HISTORY", {
+      userId: req.user.id,
+      query: req.query,
+    });
+
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+      const offset = (page - 1) * limit;
+      const { dateFrom, dateTo, customerId, delivererId } = req.query;
+
+      // Construction des filtres
+      let whereClause =
+        "WHERE al.action = 'PAYMENT_RECORDED' AND al.organization_id = $1";
+      const params = [req.user.organization_id];
+      let paramIndex = 2;
+
+      if (dateFrom) {
+        params.push(dateFrom);
+        whereClause += ` AND DATE(al.created_at) >= $${paramIndex++}`;
+      }
+
+      if (dateTo) {
+        params.push(dateTo);
+        whereClause += ` AND DATE(al.created_at) <= $${paramIndex++}`;
+      }
+
+      if (customerId) {
+        params.push(customerId);
+        whereClause += ` AND al.details->>'customerId' = $${paramIndex++}`;
+      }
+
+      if (delivererId) {
+        params.push(delivererId);
+        whereClause += ` AND al.user_id = $${paramIndex++}`;
+      }
+
+      // Compter le total
+      const countResult = await pool.query(
+        `SELECT COUNT(*) as count FROM audit_logs al ${whereClause}`,
+        params,
+      );
+      const total = parseInt(countResult.rows[0].count);
+
+      // Récupérer les paiements
+      const result = await pool.query(
+        `SELECT 
+          al.id,
+          al.created_at,
+          al.user_id,
+          u.name as recorded_by,
+          al.details->>'customerId' as customer_id,
+          al.details->>'customerName' as customer_name,
+          (al.details->>'amount')::numeric as amount,
+          al.details->>'mode' as mode,
+          (al.details->>'debtBefore')::numeric as debt_before,
+          (al.details->>'debtAfter')::numeric as debt_after,
+          (al.details->>'ordersAffected')::int as orders_affected
+        FROM audit_logs al
+        LEFT JOIN users u ON al.user_id = u.id
+        ${whereClause}
+        ORDER BY al.created_at DESC
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+        [...params, limit, offset],
+      );
+
+      logAction("GET_PAYMENTS_HISTORY_SUCCESS", {
+        count: result.rows.length,
+        total,
+      });
+
+      res.json({
+        success: true,
+        data: result.rows.map((row) => ({
+          id: row.id,
+          createdAt: row.created_at,
+          recordedBy: {
+            id: row.user_id,
+            name: row.recorded_by || "Inconnu",
+          },
+          customer: {
+            id: row.customer_id || "",
+            name: row.customer_name || "",
+          },
+          amount: parseNumber(row.amount),
+          mode: row.mode || "cash",
+          debtBefore: parseNumber(row.debt_before),
+          debtAfter: parseNumber(row.debt_after),
+          ordersAffected: parseInt(row.orders_affected) || 0,
+        })),
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      logAction("GET_PAYMENTS_HISTORY_ERROR", {
         error: error.message,
         stack: error.stack,
       });
