@@ -3,6 +3,7 @@ const router = express.Router();
 
 const pool = require("../config/database");
 const logger = require("../config/logger");
+const cacheMiddleware = require("../middleware/cache.middleware");
 const {
   authenticate,
   requireAdmin,
@@ -121,7 +122,7 @@ const { getPagination, getPagingData } = require("../utils/pagination.helper");
  *                       type: integer
  */
 // GET /api/orders (avec pagination optionnelle)
-router.get("/", authenticate, async (req, res) => {
+router.get("/", authenticate, cacheMiddleware(60), async (req, res) => {
   try {
     const { page, limit, offset } = getPagination(req.query, 50);
     const status = req.query.status; // Filtre optionnel par statut
@@ -191,22 +192,40 @@ router.get("/", authenticate, async (req, res) => {
 });
 
 // GET /api/orders/my
-router.get("/my", authenticate, async (req, res) => {
+router.get("/my", authenticate, cacheMiddleware(60), async (req, res) => {
   try {
+    // Optimisé : 1 requête au lieu de N+1
     const result = await pool.query(
-      `SELECT * FROM orders WHERE customer_id = $1 AND organization_id = $2 ORDER BY created_at DESC`,
+      `SELECT o.*, 
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'id', oi.id,
+                    'productId', oi.product_id,
+                    'productName', p.name,
+                    'quantity', oi.quantity,
+                    'unitPrice', oi.price
+                  ) ORDER BY oi.created_at
+                ) FILTER (WHERE oi.id IS NOT NULL), 
+                '[]'
+              ) as items
+       FROM orders o 
+       LEFT JOIN order_items oi ON o.id = oi.order_id
+       LEFT JOIN products p ON oi.product_id = p.id
+       WHERE o.customer_id = $1 AND o.organization_id = $2 
+       GROUP BY o.id
+       ORDER BY o.created_at DESC`,
       [req.user.id, req.user.organization_id],
     );
 
-    const orders = [];
-    for (const order of result.rows) {
-      const items = await getOrderItems(order.id);
-      orders.push(formatOrder(order, items));
-    }
+    const orders = result.rows.map((order) => formatOrder(order, order.items));
 
     res.json({ success: true, data: orders });
   } catch (error) {
-    logger.error("My orders error:", { error: error.message, stack: error.stack });
+    logger.error("My orders error:", {
+      error: error.message,
+      stack: error.stack,
+    });
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
@@ -225,23 +244,43 @@ router.get("/my", authenticate, async (req, res) => {
  *         description: Liste des commandes cuisine
  */
 // GET /api/orders/kitchen
-router.get("/kitchen", authenticate, requireKitchen, async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT o.*, u.name as customer_name, u.phone as customer_phone
+router.get(
+  "/kitchen",
+  authenticate,
+  requireKitchen,
+  cacheMiddleware(30),
+  async (req, res) => {
+    try {
+      // Optimisé : 1 requête au lieu de N+1
+      const result = await pool.query(
+        `SELECT o.*, 
+              u.name as customer_name, 
+              u.phone as customer_phone,
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'id', oi.id,
+                    'productId', oi.product_id,
+                    'productName', p.name,
+                    'quantity', oi.quantity,
+                    'unitPrice', oi.price
+                  ) ORDER BY oi.created_at
+                ) FILTER (WHERE oi.id IS NOT NULL), 
+                '[]'
+              ) as items
        FROM orders o 
        JOIN users u ON o.customer_id = u.id 
+       LEFT JOIN order_items oi ON o.id = oi.order_id
+       LEFT JOIN products p ON oi.product_id = p.id
        WHERE o.organization_id = $1 AND o.status IN ('validated', 'preparing')
+       GROUP BY o.id, u.name, u.phone
        ORDER BY 
          CASE WHEN o.status = 'validated' THEN 0 ELSE 1 END,
          o.created_at ASC`,
-      [req.user.organization_id],
-    );
+        [req.user.organization_id],
+      );
 
-    const orders = [];
-    for (const order of result.rows) {
-      const items = await getOrderItems(order.id);
-      orders.push({
+      const orders = result.rows.map((order) => ({
         id: order.id,
         organizationId: order.organization_id,
         customerId: order.customer_id,
@@ -249,21 +288,24 @@ router.get("/kitchen", authenticate, requireKitchen, async (req, res) => {
         total: parseFloat(order.total),
         status: order.status,
         createdAt: order.created_at,
-        items,
+        items: order.items,
         customer: {
           id: order.customer_id,
           name: order.customer_name,
           phone: order.customer_phone,
         },
-      });
-    }
+      }));
 
-    res.json({ success: true, data: orders });
-  } catch (error) {
-    logger.error("Kitchen orders error:", { error: error.message, stack: error.stack });
-    res.status(500).json({ error: "Erreur serveur" });
-  }
-});
+      res.json({ success: true, data: orders });
+    } catch (error) {
+      logger.error("Kitchen orders error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
 
 /**
  * @swagger
@@ -389,18 +431,24 @@ router.post("/", authenticate, validate("createOrder"), async (req, res) => {
           const ratio = Math.round((currentDebt / limit) * 100);
           logger.warn(
             `[CREDIT_ALERT] Customer ${req.user.id} at ${ratio}% of credit limit`,
-            { customerId: req.user.id, ratio, debt: currentDebt, limit }
+            { customerId: req.user.id, ratio, debt: currentDebt, limit },
           );
         }
       }
     } catch (err) {
-      logger.error("[CREDIT_CHECK] Error:", { error: err.message, stack: err.stack });
+      logger.error("[CREDIT_CHECK] Error:", {
+        error: err.message,
+        stack: err.stack,
+      });
     }
 
     const orderItems = await getOrderItems(order.id);
     res.json({ success: true, data: { ...order, items: orderItems } });
   } catch (error) {
-    logger.error("Create order error:", { error: error.message, stack: error.stack });
+    logger.error("Create order error:", {
+      error: error.message,
+      stack: error.stack,
+    });
     res.status(500).json({ error: "Erreur serveur: " + error.message });
   }
 });
@@ -474,16 +522,22 @@ router.put(
 
           if (limit > 0 && currentDebt >= limit * 0.8) {
             const ratio = Math.round((currentDebt / limit) * 100);
-            logger.warn(`[CREDIT_ALERT] Customer ${req.user.id} at ${ratio}% of credit limit`, {
-              customerId: req.user.id,
-              ratio,
-              debt: currentDebt,
-              limit
-            });
+            logger.warn(
+              `[CREDIT_ALERT] Customer ${req.user.id} at ${ratio}% of credit limit`,
+              {
+                customerId: req.user.id,
+                ratio,
+                debt: currentDebt,
+                limit,
+              },
+            );
           }
         }
       } catch (err) {
-        logger.error("[CREDIT_CHECK] Error:", { error: err.message, stack: err.stack });
+        logger.error("[CREDIT_CHECK] Error:", {
+          error: err.message,
+          stack: err.stack,
+        });
       }
 
       const updatedItems = await getOrderItems(req.params.id);
@@ -492,7 +546,10 @@ router.put(
         data: { id: req.params.id, total, items: updatedItems },
       });
     } catch (error) {
-      logger.error("Update order error:", { error: error.message, stack: error.stack });
+      logger.error("Update order error:", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -578,7 +635,10 @@ router.post(
 
       res.json({ success: true, data: deliveryResult.rows[0] });
     } catch (error) {
-      logger.error("Assign error:", { error: error.message, stack: error.stack });
+      logger.error("Assign error:", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -608,12 +668,14 @@ router.put(
 
       if (status === "preparing" && currentStatus !== "validated") {
         return res.status(400).json({
-          error: "La commande doit Ãªtre validÃ©e pour commencer la prÃ©paration",
+          error:
+            "La commande doit Ãªtre validÃ©e pour commencer la prÃ©paration",
         });
       }
       if (status === "ready" && currentStatus !== "preparing") {
         return res.status(400).json({
-          error: "La commande doit Ãªtre en prÃ©paration pour Ãªtre marquÃ©e prÃªte",
+          error:
+            "La commande doit Ãªtre en prÃ©paration pour Ãªtre marquÃ©e prÃªte",
         });
       }
 
@@ -632,7 +694,10 @@ router.put(
 
       res.json({ success: true });
     } catch (error) {
-      logger.error("Kitchen status error:", { error: error.message, stack: error.stack });
+      logger.error("Kitchen status error:", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },

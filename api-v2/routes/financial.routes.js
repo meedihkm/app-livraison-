@@ -7,6 +7,7 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../config/database");
 const logger = require("../config/logger");
+const cacheMiddleware = require("../middleware/cache.middleware");
 const { authenticate, authorize } = require("../middleware/auth");
 const { validate, validateUUID } = require("../middleware/validate");
 const { logAudit } = require("../services/audit.service");
@@ -32,6 +33,7 @@ router.get(
   "/overview",
   authenticate,
   authorize(["admin"]),
+  cacheMiddleware(300),
   async (req, res) => {
     logAction("GET_OVERVIEW", { userId: req.user.id });
 
@@ -181,6 +183,7 @@ router.get(
   "/debts",
   authenticate,
   authorize(["admin", "deliverer"]),
+  cacheMiddleware(300),
   async (req, res) => {
     logAction("GET_DEBTS", { userId: req.user.id, query: req.query });
 
@@ -832,6 +835,7 @@ router.get(
   "/payments/history",
   authenticate,
   authorize(["admin"]),
+  cacheMiddleware(300),
   async (req, res) => {
     logAction("GET_PAYMENTS_HISTORY", {
       userId: req.user.id,
