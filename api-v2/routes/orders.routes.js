@@ -603,6 +603,20 @@ router.post(
     try {
       const { delivererId } = req.body;
 
+      // Vérifier si déjà assigné (protection contre double-clic)
+      const existingDelivery = await pool.query(
+        `SELECT id FROM deliveries WHERE order_id = $1 AND organization_id = $2`,
+        [req.params.id, req.user.organization_id],
+      );
+
+      if (existingDelivery.rows.length > 0) {
+        return res.json({
+          success: true,
+          data: existingDelivery.rows[0],
+          message: "Commande déjà assignée",
+        });
+      }
+
       const orderCheck = await pool.query(
         `SELECT * FROM orders WHERE id = $1 AND organization_id = $2 AND status IN('locked', 'ready')`,
         [req.params.id, req.user.organization_id],
