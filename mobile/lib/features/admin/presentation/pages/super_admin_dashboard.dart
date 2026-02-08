@@ -28,7 +28,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
   }
 
   Future<Map<String, String>> _getHeaders() async {
-    final token = await SecureStorage.getAccessToken();
+    final storage = SecureStorage();
+    final token = await storage.getToken();
     // Super admin key depuis .env
     const superAdminKey = String.fromEnvironment('SUPER_ADMIN_KEY', defaultValue: '');
     return {
