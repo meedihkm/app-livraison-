@@ -28,6 +28,22 @@ router.get("/stats", authenticateSuperAdmin, async (req, res) => {
     const users = await pool.query("SELECT COUNT(*) as count FROM users");
     const orders = await pool.query("SELECT COUNT(*) as count FROM orders");
 
+    // Stats temps réel (aujourd'hui)
+    const today = await pool.query(`
+      SELECT 
+        COUNT(*) as orders_today,
+        COALESCE(SUM(total), 0) as revenue_today
+      FROM orders 
+      WHERE DATE(created_at) = CURRENT_DATE
+    `);
+
+    // Utilisateurs actifs (connectés dans les 24h)
+    const activeUsers = await pool.query(`
+      SELECT COUNT(DISTINCT user_id) as count
+      FROM refresh_tokens
+      WHERE created_at > NOW() - INTERVAL '24 hours'
+    `);
+
     res.json({
       success: true,
       data: {
@@ -35,9 +51,13 @@ router.get("/stats", authenticateSuperAdmin, async (req, res) => {
         activeOrganizations: parseInt(activeOrgs.rows[0].count),
         totalUsers: parseInt(users.rows[0].count),
         totalOrders: parseInt(orders.rows[0].count),
+        ordersToday: parseInt(today.rows[0].orders_today),
+        revenueToday: parseFloat(today.rows[0].revenue_today),
+        activeUsers24h: parseInt(activeUsers.rows[0].count),
       },
     });
   } catch (error) {
+    logger.error("Stats error:", { error: error.message, stack: error.stack });
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
@@ -453,5 +473,346 @@ router.post(
     }
   },
 );
+
+module.exports = router;
+
+// ============================================
+// NOUVELLES FONCTIONNALITÉS SUPER ADMIN
+// ============================================
+
+// GET /api/super-admin/organizations/:id/growth
+// Graphiques de croissance par organisation
+router.get(
+  "/organizations/:id/growth",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const days = parseInt(req.query.days) || 30;
+
+      const growth = await pool.query(
+        `
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as orders,
+        COALESCE(SUM(total), 0) as revenue
+      FROM orders
+      WHERE organization_id = $1 
+        AND created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC
+    `,
+        [id],
+      );
+
+      const users = await pool.query(
+        `
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as new_users
+      FROM users
+      WHERE organization_id = $1 
+        AND created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC
+    `,
+        [id],
+      );
+
+      res.json({
+        success: true,
+        data: {
+          orders: growth.rows,
+          users: users.rows,
+        },
+      });
+    } catch (error) {
+      logger.error("Growth stats error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// GET /api/super-admin/audit-logs/advanced
+// Logs d'audit avec filtres avancés
+router.get("/audit-logs/advanced", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const {
+      action,
+      userId,
+      organizationId,
+      dateFrom,
+      dateTo,
+      limit = 100,
+      offset = 0,
+    } = req.query;
+
+    let query = "SELECT * FROM audit_logs WHERE 1=1";
+    const params = [];
+    let paramCount = 0;
+
+    if (action) {
+      paramCount++;
+      query += ` AND action = $${paramCount}`;
+      params.push(action);
+    }
+
+    if (userId) {
+      paramCount++;
+      query += ` AND performed_by = $${paramCount}`;
+      params.push(userId);
+    }
+
+    if (organizationId) {
+      paramCount++;
+      query += ` AND organization_id = $${paramCount}`;
+      params.push(organizationId);
+    }
+
+    if (dateFrom) {
+      paramCount++;
+      query += ` AND created_at >= $${paramCount}`;
+      params.push(dateFrom);
+    }
+
+    if (dateTo) {
+      paramCount++;
+      query += ` AND created_at <= $${paramCount}`;
+      params.push(dateTo);
+    }
+
+    query += ` ORDER BY created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+    params.push(limit, offset);
+
+    const result = await pool.query(query, params);
+
+    res.json({
+      success: true,
+      data: result.rows,
+      pagination: {
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+      },
+    });
+  } catch (error) {
+    logger.error("Advanced audit logs error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/sessions
+// Voir toutes les sessions actives
+router.get("/sessions", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const sessions = await pool.query(`
+      SELECT 
+        rt.id,
+        rt.user_id,
+        rt.created_at,
+        rt.expires_at,
+        u.email,
+        u.name,
+        u.role,
+        o.name as organization_name
+      FROM refresh_tokens rt
+      JOIN users u ON rt.user_id = u.id
+      JOIN organizations o ON u.organization_id = o.id
+      WHERE rt.expires_at > NOW()
+      ORDER BY rt.created_at DESC
+    `);
+
+    res.json({
+      success: true,
+      data: sessions.rows,
+    });
+  } catch (error) {
+    logger.error("Sessions error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// DELETE /api/super-admin/sessions/:id
+// Révoquer une session
+router.delete("/sessions/:id", authenticateSuperAdmin, async (req, res) => {
+  try {
+    await pool.query("DELETE FROM refresh_tokens WHERE id = $1", [
+      req.params.id,
+    ]);
+    res.json({ success: true, message: "Session révoquée" });
+  } catch (error) {
+    logger.error("Revoke session error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/failed-logins
+// Tentatives de connexion échouées
+router.get("/failed-logins", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { hours = 24 } = req.query;
+
+    const failed = await pool.query(`
+      SELECT 
+        details->>'email' as email,
+        details->>'ip' as ip,
+        COUNT(*) as attempts,
+        MAX(created_at) as last_attempt
+      FROM audit_logs
+      WHERE action = 'LOGIN_FAILED'
+        AND created_at > NOW() - INTERVAL '${hours} hours'
+      GROUP BY details->>'email', details->>'ip'
+      HAVING COUNT(*) >= 3
+      ORDER BY attempts DESC, last_attempt DESC
+    `);
+
+    res.json({
+      success: true,
+      data: failed.rows,
+    });
+  } catch (error) {
+    logger.error("Failed logins error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// POST /api/super-admin/backup
+// Déclencher un backup manuel
+router.post("/backup", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const filename = `awid_backup_${timestamp}.sql`;
+
+    // Commande pg_dump (nécessite pg_dump installé)
+    const { exec } = require("child_process");
+    const backupPath = `/tmp/${filename}`;
+
+    const dbUrl = process.env.DATABASE_URL;
+    const command = `pg_dump ${dbUrl} > ${backupPath}`;
+
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        logger.error("Backup error:", { error: error.message, stderr });
+        return res
+          .status(500)
+          .json({ error: "Erreur backup", details: stderr });
+      }
+
+      res.json({
+        success: true,
+        message: "Backup créé",
+        filename,
+        path: backupPath,
+      });
+    });
+  } catch (error) {
+    logger.error("Backup error:", { error: error.message, stack: error.stack });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// PATCH /api/super-admin/organizations/:id
+// Modifier une organisation
+router.patch("/organizations/:id", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, type, kitchenMode } = req.body;
+
+    const updates = [];
+    const params = [];
+    let paramCount = 0;
+
+    if (name) {
+      paramCount++;
+      updates.push(`name = $${paramCount}`);
+      params.push(name);
+    }
+
+    if (type) {
+      paramCount++;
+      updates.push(`type = $${paramCount}`);
+      params.push(type);
+    }
+
+    if (kitchenMode !== undefined) {
+      paramCount++;
+      updates.push(`kitchen_mode = $${paramCount}`);
+      params.push(kitchenMode);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: "Aucune modification" });
+    }
+
+    paramCount++;
+    params.push(id);
+
+    const query = `UPDATE organizations SET ${updates.join(", ")}, updated_at = NOW() WHERE id = $${paramCount} RETURNING *`;
+    const result = await pool.query(query, params);
+
+    await logAudit("ORG_UPDATED", null, id, { name, type, kitchenMode }, req);
+
+    res.json({
+      success: true,
+      data: result.rows[0],
+    });
+  } catch (error) {
+    logger.error("Update org error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/error-logs
+// Logs d'erreurs de toutes les organisations
+router.get("/error-logs", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { limit = 100, offset = 0 } = req.query;
+
+    // Récupérer les erreurs depuis audit_logs
+    const errors = await pool.query(
+      `
+      SELECT 
+        al.*,
+        o.name as organization_name,
+        u.email as user_email
+      FROM audit_logs al
+      LEFT JOIN organizations o ON al.organization_id = o.id
+      LEFT JOIN users u ON al.performed_by = u.id
+      WHERE al.action LIKE '%ERROR%' OR al.action LIKE '%FAILED%'
+      ORDER BY al.created_at DESC
+      LIMIT $1 OFFSET $2
+    `,
+      [limit, offset],
+    );
+
+    res.json({
+      success: true,
+      data: errors.rows,
+    });
+  } catch (error) {
+    logger.error("Error logs error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
 
 module.exports = router;
