@@ -8,7 +8,6 @@ import '../../../../core/services/financial_service.dart';
 import '../../../auth/providers/auth_provider.dart';
 import 'deliverers_map_page.dart';
 import 'deliveries_page.dart';
-import 'super_admin_dashboard.dart';
 
 import '../../../finance/presentation/pages/finance_dashboard_page.dart';
 
@@ -66,22 +65,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          // Bouton Super Admin (visible seulement pour super admin)
-          Consumer<AuthProvider>(
-            builder: (context, authProvider, child) {
-              final isSuperAdmin = authProvider.user?['role'] == 'superadmin';
-              if (!isSuperAdmin) return const SizedBox.shrink();
-              
-              return IconButton(
-                icon: const Icon(Icons.admin_panel_settings),
-                tooltip: 'Super Admin',
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SuperAdminDashboard()),
-                ),
-              );
-            },
-          ),
           IconButton(
             icon: Icon(Icons.map),
             tooltip: 'Carte des livreurs',

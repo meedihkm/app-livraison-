@@ -9,6 +9,7 @@ import 'core/services/sentry_service.dart';
 import 'core/storage/secure_storage.dart';
 import 'core/theme/app_theme.dart';
 import 'features/admin/presentation/pages/admin_dashboard.dart';
+import 'features/admin/presentation/pages/super_admin_dashboard.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/customer/presentation/pages/customer_dashboard.dart';
@@ -139,8 +140,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
         }
 
         switch (authProvider.user!['role']) {
-          case 'admin':
           case 'superadmin':
+            return SuperAdminDashboard();
+          case 'admin':
             return AdminDashboard();
           case 'customer':
             return CustomerDashboard();
