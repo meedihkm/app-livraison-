@@ -140,6 +140,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
         switch (authProvider.user!['role']) {
           case 'admin':
+          case 'superadmin':
             return AdminDashboard();
           case 'customer':
             return CustomerDashboard();
