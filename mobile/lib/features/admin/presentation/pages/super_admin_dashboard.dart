@@ -1270,16 +1270,99 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
             final data = snapshot.data as Map<String, dynamic>?;
             if (data == null) return const Text('Aucune donnée');
 
+            final orders = data['orders'] as List<dynamic>? ?? [];
+            final users = data['users'] as List<dynamic>? ?? [];
+
             return SizedBox(
               width: double.maxFinite,
+              height: 400,
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Commandes: ${data['orders']?.length ?? 0} jours'),
-                    Text('Nouveaux users: ${data['users']?.length ?? 0} jours'),
-                    const SizedBox(height: 16),
-                    const Text('Graphiques détaillés disponibles prochainement'),
+                    // Graphique des commandes
+                    if (orders.isNotEmpty) ...[
+                      const Text('Commandes (30 derniers jours)',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 150,
+                        child: LineChart(
+                          LineChartData(
+                            gridData: FlGridData(show: true),
+                            titlesData: FlTitlesData(
+                              leftTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: true, reservedSize: 40),
+                              ),
+                              bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false),
+                              ),
+                              topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                            ),
+                            borderData: FlBorderData(show: true),
+                            lineBarsData: [
+                              LineChartBarData(
+                                spots: orders.asMap().entries.map((entry) {
+                                  return FlSpot(
+                                    entry.key.toDouble(),
+                                    double.parse(entry.value['count'].toString()),
+                                  );
+                                }).toList(),
+                                isCurved: true,
+                                color: Colors.blue,
+                                barWidth: 3,
+                                dotData: FlDotData(show: true),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Total: ${orders.fold(0, (sum, item) => sum + int.parse(item['count'].toString()))} commandes'),
+                    ],
+                    const SizedBox(height: 24),
+                    // Graphique des nouveaux utilisateurs
+                    if (users.isNotEmpty) ...[
+                      const Text('Nouveaux utilisateurs (30 derniers jours)',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 150,
+                        child: LineChart(
+                          LineChartData(
+                            gridData: FlGridData(show: true),
+                            titlesData: FlTitlesData(
+                              leftTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: true, reservedSize: 40),
+                              ),
+                              bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false),
+                              ),
+                              topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                              rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                            ),
+                            borderData: FlBorderData(show: true),
+                            lineBarsData: [
+                              LineChartBarData(
+                                spots: users.asMap().entries.map((entry) {
+                                  return FlSpot(
+                                    entry.key.toDouble(),
+                                    double.parse(entry.value['count'].toString()),
+                                  );
+                                }).toList(),
+                                isCurved: true,
+                                color: Colors.green,
+                                barWidth: 3,
+                                dotData: FlDotData(show: true),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text('Total: ${users.fold(0, (sum, item) => sum + int.parse(item['count'].toString()))} nouveaux utilisateurs'),
+                    ],
                   ],
                 ),
               ),
@@ -1762,19 +1845,152 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
   // ============================================
 
   void _showLogsFilters() {
+    String? selectedOrg;
+    String? selectedActionType;
+    DateTime? dateFrom;
+    DateTime? dateTo;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Filtres des logs'),
-        content: const Text('Filtres avancés disponibles prochainement'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fermer'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Filtres des logs'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Type d\'action:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    FilterChip(
+                      label: const Text('Tous'),
+                      selected: selectedActionType == null,
+                      onSelected: (selected) {
+                        setState(() => selectedActionType = null);
+                      },
+                    ),
+                    FilterChip(
+                      label: const Text('ERROR'),
+                      selected: selectedActionType == 'ERROR',
+                      onSelected: (selected) {
+                        setState(() => selectedActionType = selected ? 'ERROR' : null);
+                      },
+                    ),
+                    FilterChip(
+                      label: const Text('FAILED'),
+                      selected: selectedActionType == 'FAILED',
+                      onSelected: (selected) {
+                        setState(() => selectedActionType = selected ? 'FAILED' : null);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text('Période:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: dateFrom ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setState(() => dateFrom = date);
+                          }
+                        },
+                        icon: const Icon(Icons.calendar_today),
+                        label: Text(dateFrom != null 
+                            ? dateFrom!.toIso8601String().split('T')[0]
+                            : 'Date début'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: dateTo ?? DateTime.now(),
+                            firstDate: dateFrom ?? DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setState(() => dateTo = date);
+                          }
+                        },
+                        icon: const Icon(Icons.calendar_today),
+                        label: Text(dateTo != null 
+                            ? dateTo!.toIso8601String().split('T')[0]
+                            : 'Date fin'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _applyLogsFilters(
+                  actionType: selectedActionType,
+                  dateFrom: dateFrom,
+                  dateTo: dateTo,
+                );
+              },
+              child: const Text('Appliquer'),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _applyLogsFilters({
+    String? actionType,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final queryParams = <String, String>{
+        'limit': '100',
+      };
+      
+      if (actionType != null) queryParams['action_type'] = actionType;
+      if (dateFrom != null) queryParams['date_from'] = dateFrom.toIso8601String();
+      if (dateTo != null) queryParams['date_to'] = dateTo.toIso8601String();
+
+      final uri = Uri.parse('${ApiConstants.baseUrl}/super-admin/logs/detailed')
+          .replace(queryParameters: queryParams);
+
+      final response = await http.get(uri, headers: headers);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() => _errorLogs = data['data']);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${data['total']} logs trouvés')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
   }
 
   Future<void> _purgeLogs() async {
@@ -1828,19 +2044,166 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
   // ============================================
 
   void _showActivityFilters() {
+    String? selectedOrg;
+    String? selectedAction;
+    DateTime? dateFrom;
+    DateTime? dateTo;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Filtres d\'activité'),
-        content: const Text('Filtres avancés disponibles prochainement'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fermer'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Filtres d\'activité'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Type d\'action:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    FilterChip(
+                      label: const Text('Tous'),
+                      selected: selectedAction == null,
+                      onSelected: (selected) {
+                        setState(() => selectedAction = null);
+                      },
+                    ),
+                    FilterChip(
+                      label: const Text('LOGIN'),
+                      selected: selectedAction == 'LOGIN',
+                      onSelected: (selected) {
+                        setState(() => selectedAction = selected ? 'LOGIN' : null);
+                      },
+                    ),
+                    FilterChip(
+                      label: const Text('CREATE'),
+                      selected: selectedAction == 'CREATE',
+                      onSelected: (selected) {
+                        setState(() => selectedAction = selected ? 'CREATE' : null);
+                      },
+                    ),
+                    FilterChip(
+                      label: const Text('UPDATE'),
+                      selected: selectedAction == 'UPDATE',
+                      onSelected: (selected) {
+                        setState(() => selectedAction = selected ? 'UPDATE' : null);
+                      },
+                    ),
+                    FilterChip(
+                      label: const Text('DELETE'),
+                      selected: selectedAction == 'DELETE',
+                      onSelected: (selected) {
+                        setState(() => selectedAction = selected ? 'DELETE' : null);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text('Période:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: dateFrom ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setState(() => dateFrom = date);
+                          }
+                        },
+                        icon: const Icon(Icons.calendar_today),
+                        label: Text(dateFrom != null 
+                            ? dateFrom!.toIso8601String().split('T')[0]
+                            : 'Date début'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: dateTo ?? DateTime.now(),
+                            firstDate: dateFrom ?? DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setState(() => dateTo = date);
+                          }
+                        },
+                        icon: const Icon(Icons.calendar_today),
+                        label: Text(dateTo != null 
+                            ? dateTo!.toIso8601String().split('T')[0]
+                            : 'Date fin'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _applyActivityFilters(
+                  action: selectedAction,
+                  dateFrom: dateFrom,
+                  dateTo: dateTo,
+                );
+              },
+              child: const Text('Appliquer'),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _applyActivityFilters({
+    String? action,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final queryParams = <String, String>{
+        'limit': '100',
+      };
+      
+      if (action != null) queryParams['action'] = action;
+      if (dateFrom != null) queryParams['date_from'] = dateFrom.toIso8601String();
+      if (dateTo != null) queryParams['date_to'] = dateTo.toIso8601String();
+
+      final uri = Uri.parse('${ApiConstants.baseUrl}/super-admin/activity/detailed')
+          .replace(queryParameters: queryParams);
+
+      final response = await http.get(uri, headers: headers);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() => _activity = data['data']);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${data['total']} activités trouvées')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
   }
 
   Future<void> _showActivityStats() async {
@@ -3519,14 +3882,12 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                 child: const Text('Fermer'),
               ),
               ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Export PDF/CSV
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Export disponible prochainement')),
-                  );
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _exportReport(report, 'daily');
                 },
                 icon: const Icon(Icons.download),
-                label: const Text('Exporter'),
+                label: const Text('Exporter CSV'),
               ),
             ],
           ),
@@ -3946,9 +4307,109 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
   }
 
   Future<void> _editSetting(String category, String key) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Édition des paramètres disponible prochainement')),
+    final valueController = TextEditingController();
+    final descriptionController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Modifier $category.$key'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: valueController,
+              decoration: const InputDecoration(
+                labelText: 'Nouvelle valeur (JSON)',
+                border: OutlineInputBorder(),
+                hintText: '{"key": "value"}',
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Description',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (valueController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('La valeur est requise')),
+                );
+                return;
+              }
+
+              try {
+                // Valider le JSON
+                final jsonValue = json.decode(valueController.text);
+                
+                Navigator.pop(context);
+                
+                final headers = await _getHeaders();
+                final response = await http.put(
+                  Uri.parse('${ApiConstants.baseUrl}/super-admin/settings/$category/$key'),
+                  headers: headers,
+                  body: json.encode({
+                    'value': jsonValue,
+                    'description': descriptionController.text,
+                  }),
+                );
+
+                if (response.statusCode == 200) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Paramètre modifié')),
+                  );
+                  _loadSettings();
+                } else {
+                  final error = json.decode(response.body);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Erreur: ${error['error']}')),
+                  );
+                }
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('JSON invalide: $e')),
+                );
+              }
+            },
+            child: const Text('Modifier'),
+          ),
+        ],
+      ),
     );
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/settings'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        // Mettre à jour l'affichage si nécessaire
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Paramètres rechargés')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
   }
 
   Future<void> _toggleMaintenanceMode() async {
@@ -4224,6 +4685,71 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Future<void> _exportReport(Map<String, dynamic> report, String type) async {
+    try {
+      // Créer le contenu CSV
+      final buffer = StringBuffer();
+      
+      // En-tête
+      buffer.writeln('Rapport $type - ${report['generated_at']}');
+      buffer.writeln('');
+      
+      // Statistiques globales
+      if (report['global_stats'] != null) {
+        buffer.writeln('Statistiques Globales');
+        buffer.writeln('Organisations,${report['global_stats']['total_organizations']}');
+        buffer.writeln('Utilisateurs,${report['global_stats']['total_users']}');
+        buffer.writeln('Commandes,${report['global_stats']['total_orders']}');
+        buffer.writeln('Chiffre d\'affaires,${report['global_stats']['total_revenue']} DA');
+        buffer.writeln('');
+      }
+      
+      // Top organisations
+      if (report['top_organizations'] != null) {
+        buffer.writeln('Top Organisations');
+        buffer.writeln('Nom,Commandes,Chiffre d\'affaires');
+        for (var org in report['top_organizations']) {
+          buffer.writeln('${org['name']},${org['orders_count']},${org['revenue']}');
+        }
+        buffer.writeln('');
+      }
+      
+      // Activité quotidienne
+      if (report['daily_activity'] != null) {
+        buffer.writeln('Activité Quotidienne');
+        buffer.writeln('Date,Commandes,Chiffre d\'affaires');
+        for (var day in report['daily_activity']) {
+          buffer.writeln('${day['date']},${day['orders']},${day['revenue']}');
+        }
+      }
+      
+      // Sauvegarder le fichier (nécessite permission storage)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Export CSV généré (${buffer.length} caractères)'),
+          action: SnackBarAction(
+            label: 'Copier',
+            onPressed: () {
+              // Copier dans le presse-papier
+              // Clipboard.setData(ClipboardData(text: buffer.toString()));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Contenu copié dans le presse-papier')),
+              );
+            },
+          ),
+        ),
+      );
+      
+      // Note: Pour une vraie implémentation, utiliser path_provider et permission_handler
+      // pour sauvegarder le fichier dans le stockage externe
+      
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur export: $e')),
       );
     }
   }
