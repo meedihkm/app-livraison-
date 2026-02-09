@@ -135,6 +135,20 @@ temp/
 # mobile/  # Enabled for deployment
 mobile-v4/
 
+# Flutter build files
+mobile/.dart_tool/
+mobile/build/
+
+# Android build files
+mobile/android/.gradle/
+mobile/android/.idea/
+mobile/android/build/
+mobile/android/local.properties
+mobile/android/app/build/
+
+# Scripts locaux
+mobile/build_apk.sh
+
 # Backend legacy
 backend-v4/
 
