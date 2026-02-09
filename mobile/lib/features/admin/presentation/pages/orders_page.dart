@@ -23,6 +23,9 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
   
   // Filtres
   String _groupBy = 'none'; // none, client, deliverer
+  
+  // État de chargement pour éviter les double-clics
+  Set<String> _processingOrders = {};
 
   @override
   void initState() {
@@ -346,10 +349,27 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
                     if (order.isPending)
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () => _lockOrder(order),
-                          icon: Icon(Icons.check, size: 16),
-                          label: Text('Valider'),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: EdgeInsets.symmetric(vertical: 8)),
+                          onPressed: _processingOrders.contains(order.id) 
+                              ? null 
+                              : () => _lockOrder(order),
+                          icon: _processingOrders.contains(order.id)
+                              ? SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : Icon(Icons.check, size: 16),
+                          label: Text(_processingOrders.contains(order.id) ? 'Validation...' : 'Valider'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green, 
+                            foregroundColor: Colors.white, 
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), 
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            disabledBackgroundColor: Colors.green.withOpacity(0.6),
+                          ),
                         ),
                       ),
                     // Afficher le bouton assigner pour : locked, ready, ou (validated/preparing si PAS mode cuisine)
@@ -358,10 +378,27 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
                         (!_kitchenMode && (order.status == 'validated' || order.status == 'preparing')))
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () => _assignDeliverer(order),
-                          icon: Icon(Icons.local_shipping, size: 16),
-                          label: Text('Assigner'),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: EdgeInsets.symmetric(vertical: 8)),
+                          onPressed: _processingOrders.contains(order.id) 
+                              ? null 
+                              : () => _assignDeliverer(order),
+                          icon: _processingOrders.contains(order.id)
+                              ? SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : Icon(Icons.local_shipping, size: 16),
+                          label: Text(_processingOrders.contains(order.id) ? 'Assignation...' : 'Assigner'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange, 
+                            foregroundColor: Colors.white, 
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), 
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            disabledBackgroundColor: Colors.orange.withOpacity(0.6),
+                          ),
                         ),
                       ),
                     // Bouton pour résoudre un litige
@@ -452,31 +489,170 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
   }
 
   Future<void> _lockOrder(Order order) async {
+    // Vérifier si déjà en cours de traitement
+    if (_processingOrders.contains(order.id)) return;
+    
+    // Marquer comme en cours de traitement
+    setState(() => _processingOrders.add(order.id));
+
     try {
       await _apiService.lockOrder(order.id);
-      _loadData();
+      
+      if (mounted) {
+        // Mise à jour optimiste de l'état local
+        setState(() {
+          final index = _orders.indexWhere((o) => o.id == order.id);
+          if (index != -1) {
+            _orders[index] = Order.fromJson({
+              ..._orders[index].toJson(),
+              'status': 'locked',
+            });
+          }
+          _processingOrders.remove(order.id);
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Commande validée'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        
+        // Recharger en arrière-plan sans bloquer l'UI
+        _loadData(forceRefresh: true);
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+      if (mounted) {
+        setState(() => _processingOrders.remove(order.id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 8),
+                Expanded(child: Text('Erreur: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _assignDeliverer(Order order) async {
+    // Vérifier si déjà en cours de traitement
+    if (_processingOrders.contains(order.id)) return;
+    
+    if (_deliverers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Aucun livreur disponible')),
+      );
+      return;
+    }
+
     // Show dialog to pick deliverer
-    showDialog(context: context, builder: (context) => SimpleDialog(
-      title: Text('Assigner un livreur'),
-      children: _deliverers.map((d) => SimpleDialogOption(
-        child: Text('${d['name']} ${d['surname'] ?? ''}'),
-        onPressed: () async {
-          Navigator.pop(context);
-          try {
-            await _apiService.assignDeliverer(order.id, d['id'] as String);
-            _loadData();
-          } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+    final selectedDeliverer = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Assigner un livreur'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: _deliverers.length,
+            itemBuilder: (context, index) {
+              final d = _deliverers[index];
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.orange,
+                  child: Text((d['name']?.toString() ?? 'L')[0].toUpperCase()),
+                ),
+                title: Text('${d['name']} ${d['surname'] ?? ''}'),
+                subtitle: d['phone'] != null ? Text(d['phone'].toString()) : null,
+                onTap: () => Navigator.pop(context, d),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Annuler'),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedDeliverer == null) return;
+
+    // Marquer comme en cours de traitement
+    setState(() => _processingOrders.add(order.id));
+
+    try {
+      await _apiService.assignDeliverer(order.id, selectedDeliverer['id'] as String);
+      
+      if (mounted) {
+        // Mise à jour optimiste de l'état local
+        setState(() {
+          final index = _orders.indexWhere((o) => o.id == order.id);
+          if (index != -1) {
+            _orders[index] = Order.fromJson({
+              ..._orders[index].toJson(),
+              'status': 'in_delivery',
+              'deliverer_id': selectedDeliverer['id'],
+            });
           }
-        },
-      )).toList(),
-    ));
+          _processingOrders.remove(order.id);
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Expanded(child: Text('Livreur assigné: ${selectedDeliverer['name']}')),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        
+        // Recharger en arrière-plan sans bloquer l'UI
+        _loadData(forceRefresh: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _processingOrders.remove(order.id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 8),
+                Expanded(child: Text('Erreur: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   // UI HELPERS
