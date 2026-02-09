@@ -30,12 +30,9 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
   Future<Map<String, String>> _getHeaders() async {
     final storage = SecureStorage();
     final token = await storage.getToken();
-    // Super admin key depuis .env
-    const superAdminKey = String.fromEnvironment('SUPER_ADMIN_KEY', defaultValue: '');
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
-      'x-super-admin-key': superAdminKey,
     };
   }
 
