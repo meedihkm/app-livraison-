@@ -26,7 +26,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 8, vsync: this);
+    _tabController = TabController(length: 9, vsync: this);
     _loadData();
   }
 
@@ -203,6 +203,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
             Tab(text: 'Activité'),
             Tab(text: 'Alertes'),
             Tab(text: 'Monitoring'),
+            Tab(text: 'Rapports'),
           ],
         ),
       ),
@@ -219,6 +220,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                 _buildActivity(),
                 _buildAlerts(),
                 _buildMonitoring(),
+                _buildReports(),
               ],
             ),
     );
@@ -3038,6 +3040,425 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                               ),
                             ],
                           ),
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  // ============================================
+  // PHASE 5 - ONGLET RAPPORTS
+  // ============================================
+
+  Widget _buildReports() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const Text('Rapports prédéfinis',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        
+        // Rapport quotidien
+        Card(
+          child: ListTile(
+            leading: const CircleAvatar(
+              backgroundColor: Colors.blue,
+              child: Icon(Icons.today, color: Colors.white),
+            ),
+            title: const Text('Rapport quotidien'),
+            subtitle: const Text('Commandes, CA, nouveaux utilisateurs, erreurs'),
+            trailing: const Icon(Icons.arrow_forward),
+            onTap: _showDailyReport,
+          ),
+        ),
+        
+        // Rapport hebdomadaire
+        Card(
+          child: ListTile(
+            leading: const CircleAvatar(
+              backgroundColor: Colors.green,
+              child: Icon(Icons.date_range, color: Colors.white),
+            ),
+            title: const Text('Rapport hebdomadaire'),
+            subtitle: const Text('Évolution vs semaine précédente, top organisations'),
+            trailing: const Icon(Icons.arrow_forward),
+            onTap: _showWeeklyReport,
+          ),
+        ),
+        
+        // Rapport mensuel
+        Card(
+          child: ListTile(
+            leading: const CircleAvatar(
+              backgroundColor: Colors.orange,
+              child: Icon(Icons.calendar_month, color: Colors.white),
+            ),
+            title: const Text('Rapport mensuel'),
+            subtitle: const Text('CA total, croissance, statistiques détaillées'),
+            trailing: const Icon(Icons.arrow_forward),
+            onTap: _showMonthlyReport,
+          ),
+        ),
+        
+        const Divider(height: 32),
+        
+        const Text('Historique des rapports',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        
+        ElevatedButton.icon(
+          onPressed: _showReportsHistory,
+          icon: const Icon(Icons.history),
+          label: const Text('Voir l\'historique'),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 48),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showDailyReport() async {
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+
+    if (selectedDate == null) return;
+
+    try {
+      final headers = await _getHeaders();
+      final dateStr = selectedDate.toIso8601String().split('T')[0];
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/reports/daily?date=$dateStr'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final report = data['data'];
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Rapport quotidien - ${report['date']}'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Commandes
+                    _buildReportSection('Commandes', [
+                      'Total: ${report['orders']['total_orders']}',
+                      'En attente: ${report['orders']['pending']}',
+                      'Livrées: ${report['orders']['delivered']}',
+                      'Annulées: ${report['orders']['cancelled']}',
+                      'CA: ${report['orders']['total_revenue']} DA',
+                      'Panier moyen: ${double.parse(report['orders']['avg_order_value'].toString()).toStringAsFixed(2)} DA',
+                    ]),
+                    
+                    // Nouveaux utilisateurs
+                    _buildReportSection('Nouveaux utilisateurs', [
+                      'Total: ${report['new_users']['total']}',
+                      'Clients: ${report['new_users']['customers']}',
+                      'Livreurs: ${report['new_users']['deliverers']}',
+                      'Admins: ${report['new_users']['admins']}',
+                    ]),
+                    
+                    // Erreurs
+                    _buildReportSection('Erreurs', [
+                      'Total: ${report['errors']['total']}',
+                      if ((report['errors']['by_type'] as List).isNotEmpty)
+                        ...(report['errors']['by_type'] as List).take(5).map((e) => 
+                          '${e['action']}: ${e['count']}'),
+                    ]),
+                    
+                    // Top organisations
+                    if ((report['top_organizations'] as List).isNotEmpty) ...[
+                      const Divider(height: 24),
+                      const Text('Top organisations',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      ...(report['top_organizations'] as List).take(5).map((org) => 
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text('${org['name']}: ${org['orders_count']} cmd, ${org['revenue']} DA',
+                              style: const TextStyle(fontSize: 12)),
+                        )),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  // TODO: Export PDF/CSV
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Export disponible prochainement')),
+                  );
+                },
+                icon: const Icon(Icons.download),
+                label: const Text('Exporter'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Future<void> _showWeeklyReport() async {
+    try {
+      final headers = await _getHeaders();
+      final weekStart = DateTime.now().subtract(const Duration(days: 7))
+          .toIso8601String().split('T')[0];
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/reports/weekly?week_start=$weekStart'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final report = data['data'];
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Rapport hebdomadaire\n${report['period']['start']} → ${report['period']['end']}'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Croissance
+                    Card(
+                      color: double.parse(report['growth']['orders'].toString()) >= 0 
+                          ? Colors.green.shade50 
+                          : Colors.red.shade50,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Croissance vs semaine précédente',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            Text('Commandes: ${report['growth']['orders']}%'),
+                            Text('CA: ${report['growth']['revenue']}%'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Stats semaine actuelle
+                    _buildReportSection('Cette semaine', [
+                      'Commandes: ${report['current_week']['total_orders']}',
+                      'CA: ${report['current_week']['total_revenue']} DA',
+                      'Nouveaux utilisateurs: ${report['current_week']['new_users']}',
+                      'Organisations actives: ${report['current_week']['active_orgs']}',
+                    ]),
+                    
+                    // Top organisations
+                    if ((report['top_organizations'] as List).isNotEmpty) ...[
+                      const Divider(height: 24),
+                      const Text('Top organisations',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      ...(report['top_organizations'] as List).take(5).map((org) => 
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text('${org['name']}: ${org['revenue']} DA',
+                              style: const TextStyle(fontSize: 12)),
+                        )),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Future<void> _showMonthlyReport() async {
+    try {
+      final headers = await _getHeaders();
+      final now = DateTime.now();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/reports/monthly?year=${now.year}&month=${now.month}'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final report = data['data'];
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Rapport mensuel\n${report['period']['month_name']} ${report['period']['year']}'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Croissance
+                    Card(
+                      color: double.parse(report['growth']['orders'].toString()) >= 0 
+                          ? Colors.green.shade50 
+                          : Colors.red.shade50,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Croissance vs mois précédent',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            Text('Commandes: ${report['growth']['orders']}%'),
+                            Text('CA: ${report['growth']['revenue']}%'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Stats du mois
+                    _buildReportSection('Ce mois', [
+                      'Commandes: ${report['current_month']['total_orders']}',
+                      'CA: ${report['current_month']['total_revenue']} DA',
+                      'Panier moyen: ${double.parse(report['current_month']['avg_order_value'].toString()).toStringAsFixed(2)} DA',
+                      'Clients uniques: ${report['current_month']['unique_customers']}',
+                      'Nouveaux utilisateurs: ${report['current_month']['new_users']}',
+                      'Organisations actives: ${report['current_month']['active_orgs']}',
+                    ]),
+                    
+                    // Top organisations
+                    if ((report['top_organizations'] as List).isNotEmpty) ...[
+                      const Divider(height: 24),
+                      const Text('Top organisations',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      ...(report['top_organizations'] as List).take(5).map((org) => 
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text('${org['name']}: ${org['revenue']} DA (${org['orders_count']} cmd)',
+                              style: const TextStyle(fontSize: 12)),
+                        )),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Widget _buildReportSection(String title, List<String> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        ...items.map((item) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text('• $item', style: const TextStyle(fontSize: 12)),
+            )),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Future<void> _showReportsHistory() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/reports/history?limit=50'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final reports = data['data'] as List<dynamic>;
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Historique des rapports'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 400,
+              child: reports.isEmpty
+                  ? const Center(child: Text('Aucun rapport généré'))
+                  : ListView.builder(
+                      itemCount: reports.length,
+                      itemBuilder: (context, index) {
+                        final report = reports[index];
+                        return ListTile(
+                          leading: Icon(
+                            report['type'] == 'daily' ? Icons.today :
+                            report['type'] == 'weekly' ? Icons.date_range :
+                            Icons.calendar_month,
+                          ),
+                          title: Text('Rapport ${report['type']}'),
+                          subtitle: Text('Généré le ${report['generated_at']?.substring(0, 19) ?? 'N/A'}'),
+                          trailing: Text(report['format']),
+                          dense: true,
                         );
                       },
                     ),

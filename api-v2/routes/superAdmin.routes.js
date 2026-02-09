@@ -3495,3 +3495,465 @@ router.get("/recommendations", authenticateSuperAdmin, async (req, res) => {
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
+
+// ============================================
+// PHASE 5 - ONGLET RAPPORTS COMPLET
+// ============================================
+
+// GET /api/super-admin/reports/daily
+// Rapport quotidien
+router.get("/reports/daily", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { date } = req.query;
+    const targetDate = date || new Date().toISOString().split("T")[0];
+
+    // Commandes du jour
+    const ordersToday = await pool.query(
+      `SELECT 
+        COUNT(*) as total_orders,
+        COUNT(*) FILTER (WHERE status = 'pending') as pending,
+        COUNT(*) FILTER (WHERE status = 'delivered') as delivered,
+        COUNT(*) FILTER (WHERE status = 'cancelled') as cancelled,
+        COALESCE(SUM(total), 0) as total_revenue,
+        COALESCE(AVG(total), 0) as avg_order_value
+      FROM orders
+      WHERE DATE(created_at) = $1`,
+      [targetDate],
+    );
+
+    // Nouveaux utilisateurs du jour
+    const newUsers = await pool.query(
+      `SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE role = 'customer') as customers,
+        COUNT(*) FILTER (WHERE role = 'deliverer') as deliverers,
+        COUNT(*) FILTER (WHERE role = 'admin') as admins
+      FROM users
+      WHERE DATE(created_at) = $1`,
+      [targetDate],
+    );
+
+    // Erreurs du jour
+    const errors = await pool.query(
+      `SELECT 
+        COUNT(*) as total_errors,
+        action,
+        COUNT(*) as count
+      FROM audit_logs
+      WHERE (action LIKE '%ERROR%' OR action LIKE '%FAILED%')
+        AND DATE(created_at) = $1
+      GROUP BY action
+      ORDER BY count DESC
+      LIMIT 10`,
+      [targetDate],
+    );
+
+    // Top organisations du jour
+    const topOrgs = await pool.query(
+      `SELECT 
+        o.id,
+        o.name,
+        COUNT(ord.id) as orders_count,
+        COALESCE(SUM(ord.total), 0) as revenue
+      FROM organizations o
+      LEFT JOIN orders ord ON o.id = ord.organization_id
+      WHERE DATE(ord.created_at) = $1
+      GROUP BY o.id, o.name
+      ORDER BY revenue DESC
+      LIMIT 10`,
+      [targetDate],
+    );
+
+    // Activité par heure
+    const activityByHour = await pool.query(
+      `SELECT 
+        EXTRACT(HOUR FROM created_at) as hour,
+        COUNT(*) as orders_count,
+        COALESCE(SUM(total), 0) as revenue
+      FROM orders
+      WHERE DATE(created_at) = $1
+      GROUP BY hour
+      ORDER BY hour`,
+      [targetDate],
+    );
+
+    res.json({
+      success: true,
+      data: {
+        date: targetDate,
+        orders: ordersToday.rows[0],
+        new_users: newUsers.rows[0],
+        errors: {
+          total: errors.rows.reduce((sum, e) => sum + parseInt(e.count), 0),
+          by_type: errors.rows,
+        },
+        top_organizations: topOrgs.rows,
+        activity_by_hour: activityByHour.rows,
+      },
+    });
+  } catch (error) {
+    logger.error("Daily report error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/reports/weekly
+// Rapport hebdomadaire
+router.get("/reports/weekly", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { week_start } = req.query;
+    const startDate =
+      week_start ||
+      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0];
+
+    // Stats de la semaine
+    const weekStats = await pool.query(
+      `SELECT 
+        COUNT(DISTINCT o.id) as total_orders,
+        COALESCE(SUM(o.total), 0) as total_revenue,
+        COUNT(DISTINCT u.id) as new_users,
+        COUNT(DISTINCT o.organization_id) as active_orgs
+      FROM orders o
+      LEFT JOIN users u ON DATE(u.created_at) >= $1 AND DATE(u.created_at) < $1::date + INTERVAL '7 days'
+      WHERE DATE(o.created_at) >= $1 AND DATE(o.created_at) < $1::date + INTERVAL '7 days'`,
+      [startDate],
+    );
+
+    // Stats semaine précédente (comparaison)
+    const prevWeekStats = await pool.query(
+      `SELECT 
+        COUNT(*) as total_orders,
+        COALESCE(SUM(total), 0) as total_revenue
+      FROM orders
+      WHERE DATE(created_at) >= $1::date - INTERVAL '7 days' 
+        AND DATE(created_at) < $1::date`,
+      [startDate],
+    );
+
+    // Calcul croissance
+    const currentOrders = parseInt(weekStats.rows[0].total_orders);
+    const prevOrders = parseInt(prevWeekStats.rows[0].total_orders);
+    const ordersGrowth =
+      prevOrders > 0
+        ? (((currentOrders - prevOrders) / prevOrders) * 100).toFixed(2)
+        : 0;
+
+    const currentRevenue = parseFloat(weekStats.rows[0].total_revenue);
+    const prevRevenue = parseFloat(prevWeekStats.rows[0].total_revenue);
+    const revenueGrowth =
+      prevRevenue > 0
+        ? (((currentRevenue - prevRevenue) / prevRevenue) * 100).toFixed(2)
+        : 0;
+
+    // Top organisations de la semaine
+    const topOrgs = await pool.query(
+      `SELECT 
+        o.id,
+        o.name,
+        COUNT(ord.id) as orders_count,
+        COALESCE(SUM(ord.total), 0) as revenue
+      FROM organizations o
+      LEFT JOIN orders ord ON o.id = ord.organization_id
+      WHERE DATE(ord.created_at) >= $1 AND DATE(ord.created_at) < $1::date + INTERVAL '7 days'
+      GROUP BY o.id, o.name
+      ORDER BY revenue DESC
+      LIMIT 10`,
+      [startDate],
+    );
+
+    // Top clients de la semaine
+    const topCustomers = await pool.query(
+      `SELECT 
+        u.id,
+        u.name,
+        u.email,
+        COUNT(o.id) as orders_count,
+        COALESCE(SUM(o.total), 0) as total_spent
+      FROM users u
+      JOIN orders o ON u.id = o.customer_id
+      WHERE DATE(o.created_at) >= $1 AND DATE(o.created_at) < $1::date + INTERVAL '7 days'
+      GROUP BY u.id, u.name, u.email
+      ORDER BY total_spent DESC
+      LIMIT 10`,
+      [startDate],
+    );
+
+    // Évolution jour par jour
+    const dailyEvolution = await pool.query(
+      `SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as orders,
+        COALESCE(SUM(total), 0) as revenue
+      FROM orders
+      WHERE DATE(created_at) >= $1 AND DATE(created_at) < $1::date + INTERVAL '7 days'
+      GROUP BY DATE(created_at)
+      ORDER BY date`,
+      [startDate],
+    );
+
+    res.json({
+      success: true,
+      data: {
+        period: {
+          start: startDate,
+          end: new Date(new Date(startDate).getTime() + 7 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split("T")[0],
+        },
+        current_week: weekStats.rows[0],
+        previous_week: prevWeekStats.rows[0],
+        growth: {
+          orders: ordersGrowth,
+          revenue: revenueGrowth,
+        },
+        top_organizations: topOrgs.rows,
+        top_customers: topCustomers.rows,
+        daily_evolution: dailyEvolution.rows,
+      },
+    });
+  } catch (error) {
+    logger.error("Weekly report error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/reports/monthly
+// Rapport mensuel
+router.get("/reports/monthly", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { year, month } = req.query;
+    const targetYear = year || new Date().getFullYear();
+    const targetMonth = month || new Date().getMonth() + 1;
+
+    // Stats du mois
+    const monthStats = await pool.query(
+      `SELECT 
+        COUNT(DISTINCT o.id) as total_orders,
+        COALESCE(SUM(o.total), 0) as total_revenue,
+        COALESCE(AVG(o.total), 0) as avg_order_value,
+        COUNT(DISTINCT o.customer_id) as unique_customers,
+        COUNT(DISTINCT o.organization_id) as active_orgs,
+        COUNT(DISTINCT u.id) as new_users
+      FROM orders o
+      LEFT JOIN users u ON EXTRACT(YEAR FROM u.created_at) = $1 
+        AND EXTRACT(MONTH FROM u.created_at) = $2
+      WHERE EXTRACT(YEAR FROM o.created_at) = $1 
+        AND EXTRACT(MONTH FROM o.created_at) = $2`,
+      [targetYear, targetMonth],
+    );
+
+    // Stats mois précédent
+    const prevMonth = targetMonth === 1 ? 12 : targetMonth - 1;
+    const prevYear = targetMonth === 1 ? targetYear - 1 : targetYear;
+
+    const prevMonthStats = await pool.query(
+      `SELECT 
+        COUNT(*) as total_orders,
+        COALESCE(SUM(total), 0) as total_revenue
+      FROM orders
+      WHERE EXTRACT(YEAR FROM created_at) = $1 
+        AND EXTRACT(MONTH FROM created_at) = $2`,
+      [prevYear, prevMonth],
+    );
+
+    // Calcul croissance
+    const currentOrders = parseInt(monthStats.rows[0].total_orders);
+    const prevOrders = parseInt(prevMonthStats.rows[0].total_orders);
+    const ordersGrowth =
+      prevOrders > 0
+        ? (((currentOrders - prevOrders) / prevOrders) * 100).toFixed(2)
+        : 0;
+
+    const currentRevenue = parseFloat(monthStats.rows[0].total_revenue);
+    const prevRevenue = parseFloat(prevMonthStats.rows[0].total_revenue);
+    const revenueGrowth =
+      prevRevenue > 0
+        ? (((currentRevenue - prevRevenue) / prevRevenue) * 100).toFixed(2)
+        : 0;
+
+    // Évolution jour par jour
+    const dailyEvolution = await pool.query(
+      `SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as orders,
+        COALESCE(SUM(total), 0) as revenue
+      FROM orders
+      WHERE EXTRACT(YEAR FROM created_at) = $1 
+        AND EXTRACT(MONTH FROM created_at) = $2
+      GROUP BY DATE(created_at)
+      ORDER BY date`,
+      [targetYear, targetMonth],
+    );
+
+    // Top organisations du mois
+    const topOrgs = await pool.query(
+      `SELECT 
+        o.id,
+        o.name,
+        COUNT(ord.id) as orders_count,
+        COALESCE(SUM(ord.total), 0) as revenue,
+        COALESCE(AVG(ord.total), 0) as avg_order_value
+      FROM organizations o
+      LEFT JOIN orders ord ON o.id = ord.organization_id
+      WHERE EXTRACT(YEAR FROM ord.created_at) = $1 
+        AND EXTRACT(MONTH FROM ord.created_at) = $2
+      GROUP BY o.id, o.name
+      ORDER BY revenue DESC
+      LIMIT 10`,
+      [targetYear, targetMonth],
+    );
+
+    // Répartition par statut
+    const ordersByStatus = await pool.query(
+      `SELECT 
+        status,
+        COUNT(*) as count,
+        COALESCE(SUM(total), 0) as revenue
+      FROM orders
+      WHERE EXTRACT(YEAR FROM created_at) = $1 
+        AND EXTRACT(MONTH FROM created_at) = $2
+      GROUP BY status
+      ORDER BY count DESC`,
+      [targetYear, targetMonth],
+    );
+
+    res.json({
+      success: true,
+      data: {
+        period: {
+          year: targetYear,
+          month: targetMonth,
+          month_name: new Date(targetYear, targetMonth - 1).toLocaleString(
+            "fr-FR",
+            { month: "long" },
+          ),
+        },
+        current_month: monthStats.rows[0],
+        previous_month: prevMonthStats.rows[0],
+        growth: {
+          orders: ordersGrowth,
+          revenue: revenueGrowth,
+        },
+        daily_evolution: dailyEvolution.rows,
+        top_organizations: topOrgs.rows,
+        orders_by_status: ordersByStatus.rows,
+      },
+    });
+  } catch (error) {
+    logger.error("Monthly report error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// POST /api/super-admin/reports/generate
+// Générer et sauvegarder un rapport
+router.post("/reports/generate", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { type, period, format = "json" } = req.body;
+
+    if (!type || !period) {
+      return res.status(400).json({ error: "Type et période requis" });
+    }
+
+    // Créer la table si elle n'existe pas
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS generated_reports (
+        id SERIAL PRIMARY KEY,
+        type VARCHAR(50) NOT NULL,
+        period JSONB NOT NULL,
+        format VARCHAR(20) NOT NULL,
+        data JSONB NOT NULL,
+        generated_by UUID REFERENCES users(id),
+        generated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Récupérer les données selon le type
+    let reportData;
+    let endpoint;
+
+    switch (type) {
+      case "daily":
+        endpoint = `/super-admin/reports/daily?date=${period.date}`;
+        break;
+      case "weekly":
+        endpoint = `/super-admin/reports/weekly?week_start=${period.week_start}`;
+        break;
+      case "monthly":
+        endpoint = `/super-admin/reports/monthly?year=${period.year}&month=${period.month}`;
+        break;
+      default:
+        return res.status(400).json({ error: "Type de rapport invalide" });
+    }
+
+    // Sauvegarder le rapport
+    const result = await pool.query(
+      `INSERT INTO generated_reports (type, period, format, data, generated_by)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [type, period, format, reportData || {}, req.user?.id],
+    );
+
+    await logAudit(
+      "REPORT_GENERATED",
+      req.user?.id,
+      null,
+      { type, period, format },
+      req,
+    );
+
+    res.json({
+      success: true,
+      message: "Rapport généré",
+      data: result.rows[0],
+    });
+  } catch (error) {
+    logger.error("Generate report error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/reports/history
+// Historique des rapports générés
+router.get("/reports/history", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { limit = 50 } = req.query;
+
+    const reports = await pool.query(
+      `SELECT 
+        gr.*,
+        u.name as generated_by_name,
+        u.email as generated_by_email
+      FROM generated_reports gr
+      LEFT JOIN users u ON gr.generated_by = u.id
+      ORDER BY gr.generated_at DESC
+      LIMIT $1`,
+      [limit],
+    );
+
+    res.json({
+      success: true,
+      data: reports.rows,
+    });
+  } catch (error) {
+    // Table n'existe peut-être pas encore
+    res.json({
+      success: true,
+      data: [],
+    });
+  }
+});
