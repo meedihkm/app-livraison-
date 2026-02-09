@@ -30,8 +30,37 @@ class PrintService {
     required DateTime dateFrom,
     required DateTime dateTo,
     String? organizationName,
+    Set<String>? selectedCustomerIds,
+    double minDebt = 0,
+    double? maxDebt,
+    bool includeZeroDebt = false,
   }) async {
     final pdf = pw.Document();
+    
+    // Appliquer les filtres sur les dettes
+    final filteredDebts = debts.where((debt) {
+      // Filtre par client sélectionné
+      if (selectedCustomerIds != null && !selectedCustomerIds.contains(debt.customerId)) {
+        return false;
+      }
+      
+      // Filtre par montant minimum
+      if (debt.totalDebt < minDebt) {
+        return false;
+      }
+      
+      // Filtre par montant maximum
+      if (maxDebt != null && debt.totalDebt > maxDebt) {
+        return false;
+      }
+      
+      // Filtre dette = 0
+      if (!includeZeroDebt && debt.totalDebt == 0) {
+        return false;
+      }
+      
+      return true;
+    }).toList();
 
     pdf.addPage(
       pw.MultiPage(
@@ -42,6 +71,7 @@ class PrintService {
           dateFrom,
           dateTo,
           organizationName,
+          filterInfo: _buildFilterInfo(selectedCustomerIds, minDebt, maxDebt, includeZeroDebt),
         ),
         footer: _buildReportFooter,
         build: (context) => [
@@ -49,7 +79,7 @@ class PrintService {
           pw.SizedBox(height: 20),
           _buildTopClientsSection(overview.topClients),
           pw.SizedBox(height: 20),
-          _buildDebtsSection(debts),
+          _buildDebtsSection(filteredDebts),
         ],
       ),
     );
@@ -58,6 +88,28 @@ class PrintService {
       onLayout: (format) async => pdf.save(),
       name: 'rapport_financier_${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf',
     );
+  }
+  
+  String? _buildFilterInfo(Set<String>? selectedCustomerIds, double minDebt, double? maxDebt, bool includeZeroDebt) {
+    final filters = <String>[];
+    
+    if (selectedCustomerIds != null && selectedCustomerIds.isNotEmpty) {
+      filters.add('${selectedCustomerIds.length} client(s) sélectionné(s)');
+    }
+    
+    if (minDebt > 0) {
+      filters.add('Dette min: ${currencyFormat.format(minDebt)}');
+    }
+    
+    if (maxDebt != null) {
+      filters.add('Dette max: ${currencyFormat.format(maxDebt)}');
+    }
+    
+    if (includeZeroDebt) {
+      filters.add('Inclut clients sans dette');
+    }
+    
+    return filters.isEmpty ? null : filters.join(' • ');
   }
 
   // ============================================
@@ -154,7 +206,7 @@ class PrintService {
   // WIDGETS PDF PRIVÉS
   // ============================================
 
-  pw.Widget _buildReportHeader(String title, DateTime from, DateTime to, String? orgName) {
+  pw.Widget _buildReportHeader(String title, DateTime from, DateTime to, String? orgName, {String? filterInfo}) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -162,6 +214,11 @@ class PrintService {
         if (orgName != null) pw.Text(orgName, style: pw.TextStyle(fontSize: 12)),
         pw.Text('Période: ${DateFormat('dd/MM/yyyy').format(from)} - ${DateFormat('dd/MM/yyyy').format(to)}',
           style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+        if (filterInfo != null) ...[
+          pw.SizedBox(height: 4),
+          pw.Text('Filtres: $filterInfo',
+            style: pw.TextStyle(fontSize: 9, color: PdfColors.blue700, fontStyle: pw.FontStyle.italic)),
+        ],
         pw.Divider(),
       ],
     );

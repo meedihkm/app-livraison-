@@ -23,6 +23,7 @@ class FinanceDashboardPage extends StatefulWidget {
 class _FinanceDashboardPageState extends State<FinanceDashboardPage> with SingleTickerProviderStateMixin {
   final _service = FinancialServiceV2();
   final _printService = PrintService();
+  final currencyFormat = NumberFormat.currency(symbol: 'DA', decimalDigits: 0);
   
   late TabController _tabController;
   
@@ -112,13 +113,202 @@ class _FinanceDashboardPageState extends State<FinanceDashboardPage> with Single
   Future<void> _onPrintReport() async {
     if (_overview == null) return;
     
+    // Afficher le dialog de configuration d'impression
+    final config = await _showPrintConfigDialog();
+    if (config == null) return; // Annulé
+    
+    // Filtrer les dettes selon la configuration
+    final debtsToPrint = _filterDebtsForPrint(config);
+    
     await _printService.printFinancialReport(
       context: context,
       overview: _overview!,
-      debts: _filteredDebts,
+      debts: debtsToPrint,
       dateFrom: _dateFrom,
       dateTo: _dateTo,
+      selectedCustomerIds: config.selectedCustomerIds,
+      minDebt: config.minDebt,
+      maxDebt: config.maxDebt,
+      includeZeroDebt: config.includeZeroDebt,
     );
+  }
+  
+  Future<PrintConfig?> _showPrintConfigDialog() async {
+    final selectedCustomers = <String>{};
+    double minDebt = 0;
+    double? maxDebt;
+    bool includeZeroDebt = false;
+    
+    return await showDialog<PrintConfig>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: const Text('Configuration d\'impression'),
+            content: SingleChildScrollView(
+              child: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Section: Sélection des clients
+                    const Text('Clients à inclure:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: _filteredDebts.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text('Aucun client disponible'),
+                            )
+                          : ListView(
+                              shrinkWrap: true,
+                              children: [
+                                CheckboxListTile(
+                                  title: const Text('Tous les clients', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  value: selectedCustomers.length == _filteredDebts.length,
+                                  tristate: selectedCustomers.isNotEmpty && selectedCustomers.length < _filteredDebts.length,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      if (value == true) {
+                                        selectedCustomers.addAll(_filteredDebts.map((d) => d.customerId));
+                                      } else {
+                                        selectedCustomers.clear();
+                                      }
+                                    });
+                                  },
+                                ),
+                                const Divider(height: 1),
+                                ..._filteredDebts.map((debt) => CheckboxListTile(
+                                  dense: true,
+                                  title: Text(debt.name),
+                                  subtitle: Text(currencyFormat.format(debt.totalDebt)),
+                                  value: selectedCustomers.contains(debt.customerId),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      if (value == true) {
+                                        selectedCustomers.add(debt.customerId);
+                                      } else {
+                                        selectedCustomers.remove(debt.customerId);
+                                      }
+                                    });
+                                  },
+                                )),
+                              ],
+                            ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Section: Filtres par montant
+                    const Text('Filtres par montant de dette:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            decoration: const InputDecoration(
+                              labelText: 'Minimum (DA)',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            keyboardType: TextInputType.number,
+                            onChanged: (value) {
+                              minDebt = double.tryParse(value) ?? 0;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            decoration: const InputDecoration(
+                              labelText: 'Maximum (DA)',
+                              hintText: 'Illimité',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            keyboardType: TextInputType.number,
+                            onChanged: (value) {
+                              maxDebt = value.isEmpty ? null : double.tryParse(value);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Option: Inclure clients sans dette
+                    CheckboxListTile(
+                      title: const Text('Inclure clients sans dette'),
+                      subtitle: const Text('Afficher aussi les clients avec dette = 0 DA'),
+                      value: includeZeroDebt,
+                      onChanged: (value) {
+                        setState(() {
+                          includeZeroDebt = value ?? false;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context, PrintConfig(
+                    selectedCustomerIds: selectedCustomers.isEmpty ? null : selectedCustomers,
+                    minDebt: minDebt,
+                    maxDebt: maxDebt,
+                    includeZeroDebt: includeZeroDebt,
+                  ));
+                },
+                icon: const Icon(Icons.print),
+                label: const Text('Imprimer'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2E7D32),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+  
+  List<CustomerDebt> _filterDebtsForPrint(PrintConfig config) {
+    return _filteredDebts.where((debt) {
+      // Filtre par client sélectionné
+      if (config.selectedCustomerIds != null && 
+          !config.selectedCustomerIds!.contains(debt.customerId)) {
+        return false;
+      }
+      
+      // Filtre par montant minimum
+      if (debt.totalDebt < config.minDebt) {
+        return false;
+      }
+      
+      // Filtre par montant maximum
+      if (config.maxDebt != null && debt.totalDebt > config.maxDebt!) {
+        return false;
+      }
+      
+      // Filtre dette = 0
+      if (!config.includeZeroDebt && debt.totalDebt == 0) {
+        return false;
+      }
+      
+      return true;
+    }).toList();
   }
 
   Future<void> _onCollectPayment(CustomerDebt debt) async {
@@ -704,4 +894,22 @@ class _StatItem extends StatelessWidget {
       ],
     );
   }
+}
+
+// ============================================
+// CONFIGURATION D'IMPRESSION
+// ============================================
+
+class PrintConfig {
+  final Set<String>? selectedCustomerIds;
+  final double minDebt;
+  final double? maxDebt;
+  final bool includeZeroDebt;
+
+  PrintConfig({
+    this.selectedCustomerIds,
+    this.minDebt = 0,
+    this.maxDebt,
+    this.includeZeroDebt = false,
+  });
 }

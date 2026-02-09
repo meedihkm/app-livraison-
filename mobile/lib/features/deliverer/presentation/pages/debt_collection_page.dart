@@ -34,7 +34,9 @@ class _DebtCollectionPageState extends State<DebtCollectionPage> {
       ]);
 
       setState(() {
-        _clientsWithDebts = (results[0]['data'] as List?) ?? [];
+        // Filtrer immédiatement les clients sans dette
+        final allClients = (results[0]['data'] as List?) ?? [];
+        _clientsWithDebts = allClients.where((client) => _parseDouble(client['totalDebt']) > 0).toList();
         _myCollections = (results[1]['data'] as List?) ?? [];
         _isLoading = false;
       });
@@ -279,7 +281,9 @@ class _DebtCollectionPageState extends State<DebtCollectionPage> {
                 ),
               )
             else
-              ...(_clientsWithDebts.map((client) => Card(
+              ...(_clientsWithDebts
+                  .where((client) => _parseDouble(client['totalDebt']) > 0) // Filtrer les dettes = 0
+                  .map((client) => Card(
                     margin: EdgeInsets.only(bottom: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     child: ListTile(
