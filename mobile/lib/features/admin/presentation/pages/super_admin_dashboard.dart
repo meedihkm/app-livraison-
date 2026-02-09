@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/storage/secure_storage.dart';
+import 'organization_detail_page.dart';
 
 class SuperAdminDashboard extends StatefulWidget {
   const SuperAdminDashboard({Key? key}) : super(key: key);
@@ -100,7 +101,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
   Future<void> _loadFailedLogins() async {
     final headers = await _getHeaders();
     final response = await http.get(
-      Uri.parse('${ApiConstants.baseUrl}/super-admin/failed-logins'),
+      Uri.parse('${ApiConstants.baseUrl}/super-admin/security/failed-logins/detailed?hours=24'),
       headers: headers,
     );
     if (response.statusCode == 200) {
@@ -112,7 +113,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
   Future<void> _loadErrorLogs() async {
     final headers = await _getHeaders();
     final response = await http.get(
-      Uri.parse('${ApiConstants.baseUrl}/super-admin/error-logs?limit=50'),
+      Uri.parse('${ApiConstants.baseUrl}/super-admin/logs/detailed?limit=50'),
       headers: headers,
     );
     if (response.statusCode == 200) {
@@ -124,7 +125,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
   Future<void> _loadActivity() async {
     final headers = await _getHeaders();
     final response = await http.get(
-      Uri.parse('${ApiConstants.baseUrl}/super-admin/activity?limit=50'),
+      Uri.parse('${ApiConstants.baseUrl}/super-admin/activity/detailed?limit=50'),
       headers: headers,
     );
     if (response.statusCode == 200) {
@@ -179,6 +180,11 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
       appBar: AppBar(
         title: const Text('Super Admin'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: _showGlobalSearch,
+            tooltip: 'Recherche globale',
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logout,
@@ -252,6 +258,17 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Bouton statistiques avancées
+          ElevatedButton.icon(
+            onPressed: _showAdvancedStats,
+            icon: const Icon(Icons.analytics),
+            label: const Text('Statistiques avancées'),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 48),
+            ),
+          ),
+          const SizedBox(height: 16),
+          
           _buildStatCard('Organisations', _stats!['totalOrganizations'].toString(), Icons.business, Colors.blue),
           _buildStatCard('Organisations actives', _stats!['activeOrganizations'].toString(), Icons.check_circle, Colors.green),
           _buildStatCard('Utilisateurs', _stats!['totalUsers'].toString(), Icons.people, Colors.orange),
@@ -260,8 +277,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
           Text('Aujourd\'hui', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 16),
           _buildStatCard('Commandes', _stats!['ordersToday'].toString(), Icons.today, Colors.indigo),
-          _buildStatCard('CA', '${_stats!['revenueToday']} DA', Icons.attach_money, Colors.teal),
-          _buildStatCard('Users actifs (24h)', _stats!['activeUsers24h'].toString(), Icons.person_outline, Colors.cyan),
+          _buildStatCard('Chiffre d\'affaires', '${_stats!['revenueToday']} DA', Icons.attach_money, Colors.teal),
+          _buildStatCard('Utilisateurs actifs (24h)', _stats!['activeUsers24h'].toString(), Icons.person_outline, Colors.cyan),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             onPressed: _triggerBackup,
@@ -323,6 +340,25 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                     trailing: PopupMenuButton(
                       icon: const Icon(Icons.more_vert),
                       itemBuilder: (context) => [
+                        PopupMenuItem(
+                          child: ListTile(
+                            leading: const Icon(Icons.info),
+                            title: const Text('Voir détails'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onTap: () => Future.delayed(
+                            Duration.zero,
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => OrganizationDetailPage(
+                                  organizationId: org['id'],
+                                  organizationName: org['name'],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                         PopupMenuItem(
                           child: ListTile(
                             leading: const Icon(Icons.people),
@@ -431,42 +467,342 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
   Widget _buildSecurity() {
     return RefreshIndicator(
       onRefresh: _loadFailedLogins,
-      child: ListView.builder(
+      child: ListView(
         padding: const EdgeInsets.all(16),
-        itemCount: _failedLogins.length,
-        itemBuilder: (context, index) {
-          final login = _failedLogins[index];
-          return Card(
-            color: Colors.red.shade50,
-            child: ListTile(
-              leading: const Icon(Icons.warning, color: Colors.red),
-              title: Text(login['email'] ?? 'Inconnu'),
-              subtitle: Text('IP: ${login['ip']}\nTentatives: ${login['attempts']}'),
-              isThreeLine: true,
-            ),
-          );
-        },
+        children: [
+          // Actions
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _showBlockedIPs,
+                  icon: const Icon(Icons.block),
+                  label: const Text('IPs bloquées'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _purgeFailedLogins,
+                  icon: const Icon(Icons.delete_sweep),
+                  label: const Text('Purger'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Liste des tentatives échouées
+          if (_failedLogins.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('Aucune tentative échouée récente'),
+              ),
+            )
+          else
+            ..._failedLogins.map((login) => Card(
+                  color: Colors.red.shade50,
+                  child: ExpansionTile(
+                    leading: const Icon(Icons.warning, color: Colors.red),
+                    title: Text(login['email'] ?? 'Inconnu'),
+                    subtitle: Text('${login['attempts']} tentatives'),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildDetailRow('Adresse IP', login['ip'] ?? 'N/A'),
+                            _buildDetailRow('Première tentative', 
+                                login['first_attempt']?.substring(0, 19) ?? 'N/A'),
+                            _buildDetailRow('Dernière tentative', 
+                                login['last_attempt']?.substring(0, 19) ?? 'N/A'),
+                            _buildDetailRow('Raisons', 
+                                (login['reasons'] as List?)?.join(', ') ?? 'N/A'),
+                            _buildDetailRow('Navigateur', 
+                                login['user_agent']?.substring(0, 50) ?? 'N/A'),
+                            const SizedBox(height: 8),
+                            ElevatedButton.icon(
+                              onPressed: () => _blockIP(login['ip'], login['email']),
+                              icon: const Icon(Icons.block),
+                              label: const Text('Bloquer cette IP'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+        ],
       ),
     );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 150,
+            child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _blockIP(String? ip, String? email) async {
+    if (ip == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Bloquer cette IP'),
+        content: Text('Voulez-vous bloquer l\'IP $ip (${email ?? 'Inconnu'})?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Bloquer 24h'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final headers = await _getHeaders();
+        final response = await http.post(
+          Uri.parse('${ApiConstants.baseUrl}/super-admin/security/block-ip'),
+          headers: headers,
+          body: json.encode({
+            'ip': ip,
+            'duration': 'temporary',
+            'reason': 'Tentatives de connexion suspectes depuis $email',
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('IP $ip bloquée pour 24h')),
+          );
+          _loadFailedLogins();
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showBlockedIPs() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/security/blocked-ips'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final blockedIPs = data['data'] as List<dynamic>;
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('IPs bloquées'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: blockedIPs.isEmpty
+                  ? const Text('Aucune IP bloquée')
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: blockedIPs.length,
+                      itemBuilder: (context, index) {
+                        final ip = blockedIPs[index];
+                        return ListTile(
+                          leading: const Icon(Icons.block, color: Colors.red),
+                          title: Text(ip['ip_address']),
+                          subtitle: Text(ip['reason'] ?? 'Aucune raison'),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete),
+                            onPressed: () => _unblockIP(ip['ip_address']),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Future<void> _unblockIP(String ip) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.delete(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/security/unblock-ip/$ip'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('IP $ip débloquée')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Future<void> _purgeFailedLogins() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Purger les tentatives échouées'),
+        content: const Text('Supprimer toutes les tentatives de plus de 30 jours?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Purger', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final headers = await _getHeaders();
+        final response = await http.delete(
+          Uri.parse('${ApiConstants.baseUrl}/super-admin/security/purge-failed-logins'),
+          headers: headers,
+          body: json.encode({'older_than_days': 30}),
+        );
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['message'])),
+          );
+          _loadFailedLogins();
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildLogs() {
     return RefreshIndicator(
       onRefresh: _loadErrorLogs,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _errorLogs.length,
-        itemBuilder: (context, index) {
-          final log = _errorLogs[index];
-          return Card(
-            child: ListTile(
-              leading: const Icon(Icons.error_outline, color: Colors.orange),
-              title: Text(log['action']),
-              subtitle: Text('${log['organization_name'] ?? 'N/A'}\n${log['created_at']}'),
-              isThreeLine: true,
+      child: Column(
+        children: [
+          // Actions
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _showLogsFilters,
+                    icon: const Icon(Icons.filter_list),
+                    label: const Text('Filtres'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _purgeLogs,
+                    icon: const Icon(Icons.delete_sweep),
+                    label: const Text('Purger'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                  ),
+                ),
+              ],
             ),
-          );
-        },
+          ),
+          
+          // Liste des logs
+          Expanded(
+            child: _errorLogs.isEmpty
+                ? const Center(child: Text('Aucun log d\'erreur'))
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _errorLogs.length,
+                    itemBuilder: (context, index) {
+                      final log = _errorLogs[index];
+                      return Card(
+                        color: Colors.orange.shade50,
+                        child: ExpansionTile(
+                          leading: const Icon(Icons.error_outline, color: Colors.orange),
+                          title: Text(log['action']),
+                          subtitle: Text(
+                            '${log['organization_name'] ?? 'N/A'} • '
+                            '${log['created_at']?.substring(0, 19) ?? 'N/A'}',
+                          ),
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildDetailRow('Organisation', log['organization_name'] ?? 'N/A'),
+                                  _buildDetailRow('Utilisateur', log['user_name'] ?? 'Système'),
+                                  _buildDetailRow('Email', log['user_email'] ?? 'N/A'),
+                                  _buildDetailRow('Rôle', log['user_role'] ?? 'N/A'),
+                                  _buildDetailRow('Adresse IP', log['ip_address'] ?? 'N/A'),
+                                  _buildDetailRow('Navigateur', 
+                                      log['user_agent']?.substring(0, 50) ?? 'N/A'),
+                                  _buildDetailRow('Date complète', log['created_at'] ?? 'N/A'),
+                                  if (log['details'] != null) ...[
+                                    const SizedBox(height: 8),
+                                    const Text('Détails:', 
+                                        style: TextStyle(fontWeight: FontWeight.bold)),
+                                    Text(log['details'].toString()),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -899,26 +1235,82 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
   Widget _buildActivity() {
     return RefreshIndicator(
       onRefresh: _loadActivity,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _activity.length,
-        itemBuilder: (context, index) {
-          final log = _activity[index];
-          return Card(
-            child: ListTile(
-              leading: CircleAvatar(
-                child: Icon(_getActionIcon(log['action'])),
-              ),
-              title: Text(log['action']),
-              subtitle: Text(
-                '${log['organization_name'] ?? 'N/A'}\n'
-                '${log['user_name'] ?? 'Système'} (${log['user_email'] ?? 'N/A'})\n'
-                '${log['created_at']}',
-              ),
-              isThreeLine: true,
+      child: Column(
+        children: [
+          // Actions
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _showActivityFilters,
+                    icon: const Icon(Icons.filter_list),
+                    label: const Text('Filtres'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _showActivityStats,
+                    icon: const Icon(Icons.bar_chart),
+                    label: const Text('Statistiques'),
+                  ),
+                ),
+              ],
             ),
-          );
-        },
+          ),
+          
+          // Liste des activités
+          Expanded(
+            child: _activity.isEmpty
+                ? const Center(child: Text('Aucune activité récente'))
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _activity.length,
+                    itemBuilder: (context, index) {
+                      final log = _activity[index];
+                      return Card(
+                        child: ExpansionTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.blue.shade100,
+                            child: Icon(_getActionIcon(log['action']), color: Colors.blue),
+                          ),
+                          title: Text(log['action']),
+                          subtitle: Text(
+                            '${log['organization_name'] ?? 'N/A'} • '
+                            '${log['user_name'] ?? 'Système'} • '
+                            '${log['created_at']?.substring(0, 19) ?? 'N/A'}',
+                          ),
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildDetailRow('Action', log['action']),
+                                  _buildDetailRow('Organisation', log['organization_name'] ?? 'N/A'),
+                                  _buildDetailRow('Utilisateur', log['user_name'] ?? 'Système'),
+                                  _buildDetailRow('Email', log['user_email'] ?? 'N/A'),
+                                  _buildDetailRow('Rôle', log['user_role'] ?? 'N/A'),
+                                  _buildDetailRow('Adresse IP', log['ip_address'] ?? 'N/A'),
+                                  _buildDetailRow('Date complète', log['created_at'] ?? 'N/A'),
+                                  if (log['details'] != null) ...[
+                                    const SizedBox(height: 8),
+                                    const Text('Détails:', 
+                                        style: TextStyle(fontWeight: FontWeight.bold)),
+                                    Text(log['details'].toString()),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -1265,6 +1657,452 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
         final error = json.decode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur: ${error['error']}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  // ============================================
+  // LOGS - FILTRES ET PURGE
+  // ============================================
+
+  void _showLogsFilters() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Filtres des logs'),
+        content: const Text('Filtres avancés disponibles prochainement'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _purgeLogs() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Purger les logs'),
+        content: const Text('Supprimer tous les logs d\'erreur de plus de 90 jours?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Purger', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final headers = await _getHeaders();
+        final response = await http.delete(
+          Uri.parse('${ApiConstants.baseUrl}/super-admin/logs/purge'),
+          headers: headers,
+          body: json.encode({
+            'older_than_days': 90,
+            'log_type': 'error',
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['message'])),
+          );
+          _loadErrorLogs();
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    }
+  }
+
+  // ============================================
+  // ACTIVITÉ - FILTRES ET STATISTIQUES
+  // ============================================
+
+  void _showActivityFilters() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Filtres d\'activité'),
+        content: const Text('Filtres avancés disponibles prochainement'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showActivityStats() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/activity/detailed?limit=1000'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final stats = data['stats'];
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Statistiques d\'activité'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Actions par heure (24h)', 
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ...(stats['actions_per_hour'] as List<dynamic>).take(10).map((item) => 
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          '${item['hour']?.substring(0, 13) ?? 'N/A'}: ${item['count']} actions',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 24),
+                    Text('Actions par organisation', 
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ...(stats['actions_by_org'] as List<dynamic>).map((item) => 
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          '${item['org_name'] ?? 'N/A'}: ${item['count']} actions',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 24),
+                    Text('Utilisateurs les plus actifs', 
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ...(stats['most_active_users'] as List<dynamic>).map((item) => 
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          '${item['user_name'] ?? 'N/A'}: ${item['count']} actions',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  // ============================================
+  // PHASE 2 - RECHERCHE GLOBALE
+  // ============================================
+
+  void _showGlobalSearch() {
+    final searchController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Recherche globale'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: searchController,
+              decoration: const InputDecoration(
+                labelText: 'Rechercher...',
+                hintText: 'Nom, email, téléphone, organisation',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.search),
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Recherche dans toutes les organisations',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (searchController.text.length >= 2) {
+                Navigator.pop(context);
+                _performGlobalSearch(searchController.text);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Minimum 2 caractères')),
+                );
+              }
+            },
+            child: const Text('Rechercher'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performGlobalSearch(String query) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/search?q=${Uri.encodeComponent(query)}'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final results = data['data'];
+        
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Résultats pour "$query"'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 400,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Utilisateurs
+                    if ((results['users'] as List).isNotEmpty) ...[
+                      Text('Utilisateurs (${results['users'].length})',
+                          style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      ...(results['users'] as List).map((user) => ListTile(
+                            leading: const Icon(Icons.person),
+                            title: Text(user['name']),
+                            subtitle: Text('${user['email']}\n${user['organization_name'] ?? 'N/A'}'),
+                            isThreeLine: true,
+                            dense: true,
+                          )),
+                      const Divider(),
+                    ],
+                    
+                    // Organisations
+                    if ((results['organizations'] as List).isNotEmpty) ...[
+                      Text('Organisations (${results['organizations'].length})',
+                          style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      ...(results['organizations'] as List).map((org) => ListTile(
+                            leading: const Icon(Icons.business),
+                            title: Text(org['name']),
+                            subtitle: Text('Type: ${org['type']}'),
+                            dense: true,
+                          )),
+                      const Divider(),
+                    ],
+                    
+                    // Commandes
+                    if ((results['orders'] as List).isNotEmpty) ...[
+                      Text('Commandes (${results['orders'].length})',
+                          style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      ...(results['orders'] as List).map((order) => ListTile(
+                            leading: const Icon(Icons.shopping_cart),
+                            title: Text('${order['total']} DA'),
+                            subtitle: Text('${order['organization_name']}\n${order['customer_name']}'),
+                            isThreeLine: true,
+                            dense: true,
+                          )),
+                    ],
+                    
+                    if (data['total'] == 0)
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text('Aucun résultat trouvé'),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  // ============================================
+  // PHASE 2 - STATISTIQUES AVANCÉES
+  // ============================================
+
+  Future<void> _showAdvancedStats() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/stats/advanced?days=30'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final stats = data['data'];
+        
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Statistiques avancées (30 jours)'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Taux de croissance
+                    Card(
+                      color: double.parse(stats['growth_rate']) >= 0 
+                          ? Colors.green.shade50 
+                          : Colors.red.shade50,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            Icon(
+                              double.parse(stats['growth_rate']) >= 0 
+                                  ? Icons.trending_up 
+                                  : Icons.trending_down,
+                              color: double.parse(stats['growth_rate']) >= 0 
+                                  ? Colors.green 
+                                  : Colors.red,
+                              size: 32,
+                            ),
+                            const SizedBox(width: 16),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Taux de croissance',
+                                    style: TextStyle(fontWeight: FontWeight.bold)),
+                                Text('${stats['growth_rate']}%',
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      color: double.parse(stats['growth_rate']) >= 0 
+                                          ? Colors.green 
+                                          : Colors.red,
+                                    )),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Top organisations par CA
+                    Text('Top organisations par chiffre d\'affaires',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ...(stats['top_orgs_by_revenue'] as List).map((org) => ListTile(
+                          leading: CircleAvatar(
+                            child: Text('${(stats['top_orgs_by_revenue'] as List).indexOf(org) + 1}'),
+                          ),
+                          title: Text(org['name']),
+                          subtitle: Text('${org['orders_count']} commandes'),
+                          trailing: Text('${org['total_revenue']} DA',
+                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                          dense: true,
+                        )),
+                    const Divider(height: 24),
+                    
+                    // Répartition par rôle
+                    Text('Utilisateurs par rôle',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ...(stats['users_by_role'] as List).map((role) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(role['role']),
+                              Text('${role['count']}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        )),
+                    const Divider(height: 24),
+                    
+                    // Répartition par statut
+                    Text('Commandes par statut',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ...(stats['orders_by_status'] as List).map((status) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(status['status']),
+                              Text('${status['count']} (${status['revenue']} DA)',
+                                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        )),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
         );
       }
     } catch (e) {

@@ -1186,3 +1186,1132 @@ router.get(
     }
   },
 );
+
+// ============================================
+// PHASE 1 - ORGANISATIONS DÉTAILLÉES
+// ============================================
+
+// GET /api/super-admin/organizations/:id/details
+// Vue complète d'une organisation avec toutes les stats
+router.get(
+  "/organizations/:id/details",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Informations générales de l'organisation
+      const orgResult = await pool.query(
+        `SELECT id, name, type, active, kitchen_mode, created_at 
+       FROM organizations 
+       WHERE id = $1`,
+        [id],
+      );
+
+      if (orgResult.rows.length === 0) {
+        return res.status(404).json({ error: "Organisation non trouvée" });
+      }
+
+      const org = orgResult.rows[0];
+
+      // Dernière activité (dernière commande)
+      const lastActivityResult = await pool.query(
+        `SELECT MAX(created_at) as last_activity 
+       FROM orders 
+       WHERE organization_id = $1`,
+        [id],
+      );
+      org.last_activity = lastActivityResult.rows[0].last_activity;
+
+      // Statistiques détaillées
+      const statsResult = await pool.query(
+        `SELECT 
+        COUNT(DISTINCT u.id) as total_users,
+        COUNT(DISTINCT CASE WHEN u.role = 'customer' THEN u.id END) as customers,
+        COUNT(DISTINCT CASE WHEN u.role = 'deliverer' THEN u.id END) as deliverers,
+        COUNT(DISTINCT CASE WHEN u.role = 'admin' THEN u.id END) as admins,
+        COUNT(DISTINCT CASE WHEN u.role = 'kitchen' THEN u.id END) as kitchen,
+        COUNT(DISTINCT o.id) as total_orders,
+        COUNT(DISTINCT CASE WHEN o.status = 'pending' THEN o.id END) as orders_pending,
+        COUNT(DISTINCT CASE WHEN o.status = 'delivered' THEN o.id END) as orders_delivered,
+        COUNT(DISTINCT CASE WHEN o.status = 'cancelled' THEN o.id END) as orders_cancelled,
+        COALESCE(SUM(o.total), 0) as total_revenue,
+        COUNT(DISTINCT p.id) as total_products
+      FROM organizations org
+      LEFT JOIN users u ON org.id = u.organization_id
+      LEFT JOIN orders o ON org.id = o.organization_id
+      LEFT JOIN products p ON org.id = p.organization_id
+      WHERE org.id = $1
+      GROUP BY org.id`,
+        [id],
+      );
+
+      const stats = statsResult.rows[0];
+
+      // Chiffre d'affaires aujourd'hui
+      const todayRevenueResult = await pool.query(
+        `SELECT COALESCE(SUM(total), 0) as revenue_today
+       FROM orders
+       WHERE organization_id = $1 
+         AND DATE(created_at) = CURRENT_DATE`,
+        [id],
+      );
+      stats.revenue_today = parseFloat(
+        todayRevenueResult.rows[0].revenue_today,
+      );
+
+      // Chiffre d'affaires ce mois
+      const monthRevenueResult = await pool.query(
+        `SELECT COALESCE(SUM(total), 0) as revenue_month
+       FROM orders
+       WHERE organization_id = $1 
+         AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)`,
+        [id],
+      );
+      stats.revenue_month = parseFloat(
+        monthRevenueResult.rows[0].revenue_month,
+      );
+
+      // Graphiques de croissance (30 derniers jours)
+      const growthOrders = await pool.query(
+        `SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as count
+       FROM orders
+       WHERE organization_id = $1 
+         AND created_at > NOW() - INTERVAL '30 days'
+       GROUP BY DATE(created_at)
+       ORDER BY date ASC`,
+        [id],
+      );
+
+      const growthRevenue = await pool.query(
+        `SELECT 
+        DATE(created_at) as date,
+        COALESCE(SUM(total), 0) as amount
+       FROM orders
+       WHERE organization_id = $1 
+         AND created_at > NOW() - INTERVAL '30 days'
+       GROUP BY DATE(created_at)
+       ORDER BY date ASC`,
+        [id],
+      );
+
+      const growthUsers = await pool.query(
+        `SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as count
+       FROM users
+       WHERE organization_id = $1 
+         AND created_at > NOW() - INTERVAL '30 days'
+       GROUP BY DATE(created_at)
+       ORDER BY date ASC`,
+        [id],
+      );
+
+      // Top 10 clients
+      const topCustomers = await pool.query(
+        `SELECT 
+        u.id,
+        u.name,
+        u.email,
+        COUNT(o.id) as order_count,
+        COALESCE(SUM(o.total), 0) as total_spent
+       FROM users u
+       JOIN orders o ON u.id = o.customer_id
+       WHERE u.organization_id = $1 AND u.role = 'customer'
+       GROUP BY u.id, u.name, u.email
+       ORDER BY total_spent DESC
+       LIMIT 10`,
+        [id],
+      );
+
+      res.json({
+        success: true,
+        data: {
+          general: org,
+          stats: {
+            total_users: parseInt(stats.total_users),
+            customers: parseInt(stats.customers),
+            deliverers: parseInt(stats.deliverers),
+            admins: parseInt(stats.admins),
+            kitchen: parseInt(stats.kitchen),
+            total_orders: parseInt(stats.total_orders),
+            orders_pending: parseInt(stats.orders_pending),
+            orders_delivered: parseInt(stats.orders_delivered),
+            orders_cancelled: parseInt(stats.orders_cancelled),
+            total_revenue: parseFloat(stats.total_revenue),
+            revenue_today: stats.revenue_today,
+            revenue_month: stats.revenue_month,
+            total_products: parseInt(stats.total_products),
+          },
+          growth: {
+            orders: growthOrders.rows,
+            revenue: growthRevenue.rows,
+            users: growthUsers.rows,
+          },
+          top_customers: topCustomers.rows,
+        },
+      });
+    } catch (error) {
+      logger.error("Get org details error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// GET /api/super-admin/organizations/:id/users/detailed
+// Liste détaillée des utilisateurs avec stats complètes
+router.get(
+  "/organizations/:id/users/detailed",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { limit = 50, offset = 0 } = req.query;
+
+      // Count total
+      const countResult = await pool.query(
+        `SELECT COUNT(*) as total 
+       FROM users 
+       WHERE organization_id = $1`,
+        [id],
+      );
+      const total = parseInt(countResult.rows[0].total);
+
+      // Liste des utilisateurs avec stats
+      const usersResult = await pool.query(
+        `SELECT 
+        u.id,
+        u.name,
+        u.email,
+        u.phone,
+        u.role,
+        u.active,
+        u.created_at,
+        u.updated_at as last_login,
+        COUNT(DISTINCT CASE WHEN u.role = 'customer' THEN o.id END) as order_count,
+        COUNT(DISTINCT CASE WHEN u.role = 'deliverer' THEN d.id END) as delivery_count,
+        COALESCE(SUM(CASE WHEN u.role = 'customer' THEN o.total ELSE 0 END), 0) as total_revenue,
+        MAX(CASE WHEN u.role = 'customer' THEN o.created_at END) as last_order_date
+       FROM users u
+       LEFT JOIN orders o ON u.id = o.customer_id
+       LEFT JOIN deliveries d ON u.id = d.deliverer_id
+       WHERE u.organization_id = $1
+       GROUP BY u.id, u.name, u.email, u.phone, u.role, u.active, u.created_at, u.updated_at
+       ORDER BY u.created_at DESC
+       LIMIT $2 OFFSET $3`,
+        [id, limit, offset],
+      );
+
+      res.json({
+        success: true,
+        data: usersResult.rows.map((user) => ({
+          ...user,
+          order_count: parseInt(user.order_count),
+          delivery_count: parseInt(user.delivery_count),
+          total_revenue: parseFloat(user.total_revenue),
+        })),
+        total,
+        pagination: {
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          pages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      logger.error("Get org users detailed error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// ============================================
+// PHASE 1 - SÉCURITÉ DÉTAILLÉE
+// ============================================
+
+// GET /api/super-admin/security/failed-logins/detailed
+// Tentatives de connexion échouées avec tous les détails
+router.get(
+  "/security/failed-logins/detailed",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { limit = 100, offset = 0, hours = 24 } = req.query;
+
+      // Count total
+      const countResult = await pool.query(
+        `SELECT COUNT(*) as total
+       FROM audit_logs
+       WHERE action = 'LOGIN_FAILED'
+         AND created_at > NOW() - INTERVAL '${hours} hours'`,
+      );
+      const total = parseInt(countResult.rows[0].total);
+
+      // Détails groupés par email et IP
+      const failedLogins = await pool.query(
+        `SELECT 
+        details->>'email' as email,
+        details->>'ip' as ip,
+        COUNT(*) as attempts,
+        MIN(created_at) as first_attempt,
+        MAX(created_at) as last_attempt,
+        ARRAY_AGG(DISTINCT details->>'reason') as reasons,
+        MAX(user_agent) as user_agent
+       FROM audit_logs
+       WHERE action = 'LOGIN_FAILED'
+         AND created_at > NOW() - INTERVAL '${hours} hours'
+       GROUP BY details->>'email', details->>'ip'
+       ORDER BY last_attempt DESC
+       LIMIT $1 OFFSET $2`,
+        [limit, offset],
+      );
+
+      res.json({
+        success: true,
+        data: failedLogins.rows.map((row) => ({
+          email: row.email,
+          ip: row.ip,
+          attempts: parseInt(row.attempts),
+          first_attempt: row.first_attempt,
+          last_attempt: row.last_attempt,
+          reasons: row.reasons,
+          user_agent: row.user_agent,
+        })),
+        total,
+        pagination: {
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          pages: Math.ceil(total / limit),
+        },
+      });
+    } catch (error) {
+      logger.error("Get failed logins detailed error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// POST /api/super-admin/security/block-ip
+// Bloquer une adresse IP
+router.post("/security/block-ip", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { ip, duration, reason } = req.body;
+
+    if (!ip) {
+      return res.status(400).json({ error: "Adresse IP requise" });
+    }
+
+    let blockedUntil = null;
+    let permanent = false;
+
+    if (duration === "permanent") {
+      permanent = true;
+    } else if (duration === "temporary") {
+      // Bloquer pour 24 heures
+      blockedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    }
+
+    await pool.query(
+      `INSERT INTO blocked_ips (ip_address, reason, blocked_until, permanent, created_by)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        ip,
+        reason || "Tentatives de connexion suspectes",
+        blockedUntil,
+        permanent,
+        req.user?.id,
+      ],
+    );
+
+    await logAudit(
+      "IP_BLOCKED",
+      req.user?.id,
+      null,
+      { ip, duration, reason },
+      req,
+    );
+
+    res.json({
+      success: true,
+      message: `IP ${ip} bloquée ${permanent ? "définitivement" : "pour 24h"}`,
+    });
+  } catch (error) {
+    logger.error("Block IP error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/security/blocked-ips
+// Liste des IPs bloquées
+router.get(
+  "/security/blocked-ips",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const blockedIps = await pool.query(
+        `SELECT 
+        bi.*,
+        u.name as blocked_by_name,
+        u.email as blocked_by_email
+       FROM blocked_ips bi
+       LEFT JOIN users u ON bi.created_by = u.id
+       WHERE bi.permanent = true 
+          OR bi.blocked_until > NOW()
+       ORDER BY bi.created_at DESC`,
+      );
+
+      res.json({
+        success: true,
+        data: blockedIps.rows,
+      });
+    } catch (error) {
+      logger.error("Get blocked IPs error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// DELETE /api/super-admin/security/unblock-ip/:ip
+// Débloquer une adresse IP
+router.delete(
+  "/security/unblock-ip/:ip",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { ip } = req.params;
+
+      await pool.query(`DELETE FROM blocked_ips WHERE ip_address = $1`, [ip]);
+
+      await logAudit("IP_UNBLOCKED", req.user?.id, null, { ip }, req);
+
+      res.json({
+        success: true,
+        message: `IP ${ip} débloquée`,
+      });
+    } catch (error) {
+      logger.error("Unblock IP error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// DELETE /api/super-admin/security/purge-failed-logins
+// Purger les anciennes tentatives échouées
+router.delete(
+  "/security/purge-failed-logins",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { older_than_days = 30 } = req.body;
+
+      const result = await pool.query(
+        `DELETE FROM audit_logs
+       WHERE action = 'LOGIN_FAILED'
+         AND created_at < NOW() - INTERVAL '${older_than_days} days'
+       RETURNING id`,
+      );
+
+      await logAudit(
+        "FAILED_LOGINS_PURGED",
+        req.user?.id,
+        null,
+        {
+          deleted_count: result.rowCount,
+          older_than_days,
+        },
+        req,
+      );
+
+      res.json({
+        success: true,
+        message: `${result.rowCount} tentatives échouées supprimées`,
+        deleted_count: result.rowCount,
+      });
+    } catch (error) {
+      logger.error("Purge failed logins error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// ============================================
+// PHASE 1 - LOGS DÉTAILLÉS
+// ============================================
+
+// GET /api/super-admin/logs/detailed
+// Logs d'erreurs avec filtres avancés
+router.get("/logs/detailed", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const {
+      date_from,
+      date_to,
+      organization_id,
+      action_type,
+      limit = 100,
+      offset = 0,
+    } = req.query;
+
+    let whereConditions = [];
+    let params = [];
+    let paramIndex = 1;
+
+    // Filtrer par type d'action (ERROR, FAILED, etc.)
+    if (action_type) {
+      whereConditions.push(`al.action LIKE $${paramIndex}`);
+      params.push(`%${action_type}%`);
+      paramIndex++;
+    } else {
+      // Par défaut, montrer les erreurs et échecs
+      whereConditions.push(
+        `(al.action LIKE '%ERROR%' OR al.action LIKE '%FAILED%')`,
+      );
+    }
+
+    // Filtrer par date
+    if (date_from) {
+      whereConditions.push(`al.created_at >= $${paramIndex}`);
+      params.push(date_from);
+      paramIndex++;
+    }
+
+    if (date_to) {
+      whereConditions.push(`al.created_at <= $${paramIndex}`);
+      params.push(date_to);
+      paramIndex++;
+    }
+
+    // Filtrer par organisation
+    if (organization_id) {
+      whereConditions.push(`al.organization_id = $${paramIndex}`);
+      params.push(organization_id);
+      paramIndex++;
+    }
+
+    const whereClause =
+      whereConditions.length > 0
+        ? `WHERE ${whereConditions.join(" AND ")}`
+        : "";
+
+    // Count total
+    const countQuery = `SELECT COUNT(*) as total FROM audit_logs al ${whereClause}`;
+    const countResult = await pool.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].total);
+
+    // Récupérer les logs
+    const logsQuery = `
+      SELECT 
+        al.*,
+        o.name as organization_name,
+        u.name as user_name,
+        u.email as user_email,
+        u.role as user_role
+      FROM audit_logs al
+      LEFT JOIN organizations o ON al.organization_id = o.id
+      LEFT JOIN users u ON al.user_id = u.id
+      ${whereClause}
+      ORDER BY al.created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    params.push(parseInt(limit), parseInt(offset));
+
+    const logsResult = await pool.query(logsQuery, params);
+
+    res.json({
+      success: true,
+      data: logsResult.rows,
+      total,
+      pagination: {
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        pages: Math.ceil(total / limit),
+      },
+      filters: {
+        date_from,
+        date_to,
+        organization_id,
+        action_type,
+      },
+    });
+  } catch (error) {
+    logger.error("Get logs detailed error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// DELETE /api/super-admin/logs/purge
+// Purger les anciens logs
+router.delete("/logs/purge", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { older_than_days = 90, log_type = "error" } = req.body;
+
+    let condition = "";
+    if (log_type === "error") {
+      condition = `AND (action LIKE '%ERROR%' OR action LIKE '%FAILED%')`;
+    }
+
+    const result = await pool.query(
+      `DELETE FROM audit_logs
+       WHERE created_at < NOW() - INTERVAL '${older_than_days} days'
+       ${condition}
+       RETURNING id`,
+    );
+
+    await logAudit(
+      "LOGS_PURGED",
+      req.user?.id,
+      null,
+      {
+        deleted_count: result.rowCount,
+        older_than_days,
+        log_type,
+      },
+      req,
+    );
+
+    res.json({
+      success: true,
+      message: `${result.rowCount} logs supprimés`,
+      deleted_count: result.rowCount,
+    });
+  } catch (error) {
+    logger.error("Purge logs error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ============================================
+// PHASE 1 - ACTIVITÉ DÉTAILLÉE
+// ============================================
+
+// GET /api/super-admin/activity/detailed
+// Logs d'activité avec filtres et statistiques
+router.get("/activity/detailed", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const {
+      date_from,
+      date_to,
+      organization_id,
+      user_id,
+      action,
+      limit = 100,
+      offset = 0,
+    } = req.query;
+
+    let whereConditions = [];
+    let params = [];
+    let paramIndex = 1;
+
+    // Exclure les erreurs et échecs (déjà dans l'onglet Logs)
+    whereConditions.push(
+      `al.action NOT LIKE '%ERROR%' AND al.action NOT LIKE '%FAILED%'`,
+    );
+
+    // Filtrer par date
+    if (date_from) {
+      whereConditions.push(`al.created_at >= $${paramIndex}`);
+      params.push(date_from);
+      paramIndex++;
+    }
+
+    if (date_to) {
+      whereConditions.push(`al.created_at <= $${paramIndex}`);
+      params.push(date_to);
+      paramIndex++;
+    }
+
+    // Filtrer par organisation
+    if (organization_id) {
+      whereConditions.push(`al.organization_id = $${paramIndex}`);
+      params.push(organization_id);
+      paramIndex++;
+    }
+
+    // Filtrer par utilisateur
+    if (user_id) {
+      whereConditions.push(`al.user_id = $${paramIndex}`);
+      params.push(user_id);
+      paramIndex++;
+    }
+
+    // Filtrer par action
+    if (action) {
+      whereConditions.push(`al.action = $${paramIndex}`);
+      params.push(action);
+      paramIndex++;
+    }
+
+    const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
+
+    // Count total
+    const countQuery = `SELECT COUNT(*) as total FROM audit_logs al ${whereClause}`;
+    const countResult = await pool.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].total);
+
+    // Récupérer les activités
+    const activityQuery = `
+      SELECT 
+        al.*,
+        o.name as organization_name,
+        u.name as user_name,
+        u.email as user_email,
+        u.role as user_role
+      FROM audit_logs al
+      LEFT JOIN organizations o ON al.organization_id = o.id
+      LEFT JOIN users u ON al.user_id = u.id
+      ${whereClause}
+      ORDER BY al.created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    params.push(parseInt(limit), parseInt(offset));
+
+    const activityResult = await pool.query(activityQuery, params);
+
+    // Statistiques
+    const statsQuery = `
+      SELECT 
+        DATE_TRUNC('hour', al.created_at) as hour,
+        COUNT(*) as count
+      FROM audit_logs al
+      ${whereClause}
+      GROUP BY hour
+      ORDER BY hour DESC
+      LIMIT 24
+    `;
+    const statsResult = await pool.query(statsQuery, params.slice(0, -2));
+
+    const orgStatsQuery = `
+      SELECT 
+        o.name as org_name,
+        COUNT(*) as count
+      FROM audit_logs al
+      LEFT JOIN organizations o ON al.organization_id = o.id
+      ${whereClause}
+      GROUP BY o.name
+      ORDER BY count DESC
+      LIMIT 10
+    `;
+    const orgStatsResult = await pool.query(orgStatsQuery, params.slice(0, -2));
+
+    const userStatsQuery = `
+      SELECT 
+        u.name as user_name,
+        u.email as user_email,
+        COUNT(*) as count
+      FROM audit_logs al
+      LEFT JOIN users u ON al.user_id = u.id
+      ${whereClause}
+      GROUP BY u.name, u.email
+      ORDER BY count DESC
+      LIMIT 10
+    `;
+    const userStatsResult = await pool.query(
+      userStatsQuery,
+      params.slice(0, -2),
+    );
+
+    res.json({
+      success: true,
+      data: activityResult.rows,
+      total,
+      pagination: {
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        pages: Math.ceil(total / limit),
+      },
+      stats: {
+        actions_per_hour: statsResult.rows,
+        actions_by_org: orgStatsResult.rows,
+        most_active_users: userStatsResult.rows,
+      },
+    });
+  } catch (error) {
+    logger.error("Get activity detailed error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ============================================
+// PHASE 2 - EXPORT DE DONNÉES
+// ============================================
+
+// GET /api/super-admin/organizations/:id/export/csv
+// Export CSV des utilisateurs d'une organisation
+router.get(
+  "/organizations/:id/export/csv",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Récupérer l'organisation
+      const orgResult = await pool.query(
+        "SELECT name FROM organizations WHERE id = $1",
+        [id],
+      );
+      if (orgResult.rows.length === 0) {
+        return res.status(404).json({ error: "Organisation non trouvée" });
+      }
+      const orgName = orgResult.rows[0].name;
+
+      // Récupérer les utilisateurs avec stats
+      const users = await pool.query(
+        `SELECT 
+          u.id,
+          u.name,
+          u.email,
+          u.phone,
+          u.role,
+          u.active,
+          u.created_at,
+          COUNT(DISTINCT o.id) as total_orders,
+          COALESCE(SUM(o.total), 0) as total_revenue
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.customer_id
+        WHERE u.organization_id = $1
+        GROUP BY u.id, u.name, u.email, u.phone, u.role, u.active, u.created_at
+        ORDER BY u.created_at DESC`,
+        [id],
+      );
+
+      // Générer CSV
+      const csv = [
+        "ID,Nom,Email,Téléphone,Rôle,Actif,Date création,Commandes,CA total",
+        ...users.rows.map(
+          (row) =>
+            `${row.id},"${row.name}","${row.email}","${row.phone || ""}",${row.role},${row.active},${row.created_at},${row.total_orders},${row.total_revenue}`,
+        ),
+      ].join("\n");
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${orgName}_utilisateurs.csv"`,
+      );
+      res.send("\uFEFF" + csv); // BOM pour Excel
+    } catch (error) {
+      logger.error("Export org users CSV error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// GET /api/super-admin/organizations/:id/export/stats-csv
+// Export CSV des statistiques d'une organisation
+router.get(
+  "/organizations/:id/export/stats-csv",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { days = 30 } = req.query;
+
+      // Récupérer l'organisation
+      const orgResult = await pool.query(
+        "SELECT name FROM organizations WHERE id = $1",
+        [id],
+      );
+      if (orgResult.rows.length === 0) {
+        return res.status(404).json({ error: "Organisation non trouvée" });
+      }
+      const orgName = orgResult.rows[0].name;
+
+      // Statistiques par jour
+      const stats = await pool.query(
+        `SELECT 
+          DATE(created_at) as date,
+          COUNT(*) as orders,
+          COALESCE(SUM(total), 0) as revenue
+        FROM orders
+        WHERE organization_id = $1 
+          AND created_at > NOW() - INTERVAL '${days} days'
+        GROUP BY DATE(created_at)
+        ORDER BY date ASC`,
+        [id],
+      );
+
+      // Générer CSV
+      const csv = [
+        "Date,Commandes,Chiffre d'affaires",
+        ...stats.rows.map((row) => `${row.date},${row.orders},${row.revenue}`),
+      ].join("\n");
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${orgName}_stats_${days}j.csv"`,
+      );
+      res.send("\uFEFF" + csv);
+    } catch (error) {
+      logger.error("Export org stats CSV error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// ============================================
+// PHASE 2 - RECHERCHE GLOBALE
+// ============================================
+
+// GET /api/super-admin/search
+// Recherche globale dans toutes les organisations
+router.get("/search", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { q, type = "all", limit = 50 } = req.query;
+
+    if (!q || q.length < 2) {
+      return res
+        .status(400)
+        .json({ error: "Requête trop courte (min 2 caractères)" });
+    }
+
+    const searchTerm = `%${q}%`;
+    const results = {
+      users: [],
+      organizations: [],
+      orders: [],
+    };
+
+    // Rechercher dans les utilisateurs
+    if (type === "all" || type === "users") {
+      const usersResult = await pool.query(
+        `SELECT 
+          u.id,
+          u.name,
+          u.email,
+          u.phone,
+          u.role,
+          u.active,
+          o.name as organization_name,
+          o.id as organization_id
+        FROM users u
+        LEFT JOIN organizations o ON u.organization_id = o.id
+        WHERE u.name ILIKE $1 
+          OR u.email ILIKE $1 
+          OR u.phone ILIKE $1
+        ORDER BY u.name
+        LIMIT $2`,
+        [searchTerm, limit],
+      );
+      results.users = usersResult.rows;
+    }
+
+    // Rechercher dans les organisations
+    if (type === "all" || type === "organizations") {
+      const orgsResult = await pool.query(
+        `SELECT 
+          id,
+          name,
+          type,
+          active,
+          created_at
+        FROM organizations
+        WHERE name ILIKE $1 OR type ILIKE $1
+        ORDER BY name
+        LIMIT $2`,
+        [searchTerm, limit],
+      );
+      results.organizations = orgsResult.rows;
+    }
+
+    // Rechercher dans les commandes (par ID)
+    if (type === "all" || type === "orders") {
+      const ordersResult = await pool.query(
+        `SELECT 
+          o.id,
+          o.total,
+          o.status,
+          o.created_at,
+          org.name as organization_name,
+          u.name as customer_name,
+          u.email as customer_email
+        FROM orders o
+        LEFT JOIN organizations org ON o.organization_id = org.id
+        LEFT JOIN users u ON o.customer_id = u.id
+        WHERE CAST(o.id AS TEXT) ILIKE $1
+        ORDER BY o.created_at DESC
+        LIMIT $2`,
+        [searchTerm, limit],
+      );
+      results.orders = ordersResult.rows;
+    }
+
+    res.json({
+      success: true,
+      query: q,
+      data: results,
+      total:
+        results.users.length +
+        results.organizations.length +
+        results.orders.length,
+    });
+  } catch (error) {
+    logger.error("Global search error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ============================================
+// PHASE 2 - STATISTIQUES GLOBALES AVANCÉES
+// ============================================
+
+// GET /api/super-admin/stats/advanced
+// Statistiques avancées pour le dashboard
+router.get("/stats/advanced", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+
+    // Évolution des commandes par jour
+    const ordersEvolution = await pool.query(
+      `SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as count,
+        COALESCE(SUM(total), 0) as revenue
+      FROM orders
+      WHERE created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC`,
+    );
+
+    // Évolution des utilisateurs par jour
+    const usersEvolution = await pool.query(
+      `SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as count
+      FROM users
+      WHERE created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC`,
+    );
+
+    // Top 10 organisations par CA
+    const topOrgsByRevenue = await pool.query(
+      `SELECT 
+        o.id,
+        o.name,
+        COUNT(DISTINCT ord.id) as orders_count,
+        COALESCE(SUM(ord.total), 0) as total_revenue
+      FROM organizations o
+      LEFT JOIN orders ord ON o.id = ord.organization_id
+      WHERE ord.created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY o.id, o.name
+      ORDER BY total_revenue DESC
+      LIMIT 10`,
+    );
+
+    // Top 10 organisations par nombre de commandes
+    const topOrgsByOrders = await pool.query(
+      `SELECT 
+        o.id,
+        o.name,
+        COUNT(DISTINCT ord.id) as orders_count
+      FROM organizations o
+      LEFT JOIN orders ord ON o.id = ord.organization_id
+      WHERE ord.created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY o.id, o.name
+      ORDER BY orders_count DESC
+      LIMIT 10`,
+    );
+
+    // Répartition des utilisateurs par rôle
+    const usersByRole = await pool.query(
+      `SELECT 
+        role,
+        COUNT(*) as count
+      FROM users
+      GROUP BY role
+      ORDER BY count DESC`,
+    );
+
+    // Répartition des commandes par statut
+    const ordersByStatus = await pool.query(
+      `SELECT 
+        status,
+        COUNT(*) as count,
+        COALESCE(SUM(total), 0) as revenue
+      FROM orders
+      WHERE created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY status
+      ORDER BY count DESC`,
+    );
+
+    // Taux de croissance
+    const previousPeriodOrders = await pool.query(
+      `SELECT COUNT(*) as count
+      FROM orders
+      WHERE created_at BETWEEN NOW() - INTERVAL '${days * 2} days' AND NOW() - INTERVAL '${days} days'`,
+    );
+
+    const currentPeriodOrders = await pool.query(
+      `SELECT COUNT(*) as count
+      FROM orders
+      WHERE created_at > NOW() - INTERVAL '${days} days'`,
+    );
+
+    const previousCount = parseInt(previousPeriodOrders.rows[0].count);
+    const currentCount = parseInt(currentPeriodOrders.rows[0].count);
+    const growthRate =
+      previousCount > 0
+        ? ((currentCount - previousCount) / previousCount) * 100
+        : 0;
+
+    res.json({
+      success: true,
+      data: {
+        orders_evolution: ordersEvolution.rows,
+        users_evolution: usersEvolution.rows,
+        top_orgs_by_revenue: topOrgsByRevenue.rows,
+        top_orgs_by_orders: topOrgsByOrders.rows,
+        users_by_role: usersByRole.rows,
+        orders_by_status: ordersByStatus.rows,
+        growth_rate: growthRate.toFixed(2),
+        period_days: days,
+      },
+    });
+  } catch (error) {
+    logger.error("Advanced stats error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
