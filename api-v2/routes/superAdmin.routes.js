@@ -2315,3 +2315,548 @@ router.get("/stats/advanced", authenticateSuperAdmin, async (req, res) => {
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
+
+// ============================================
+// PHASE 3 - GESTION AVANCÉE DES ORGANISATIONS
+// ============================================
+
+// POST /api/super-admin/organizations/:id/duplicate
+// Dupliquer une organisation avec ses paramètres
+router.post(
+  "/organizations/:id/duplicate",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { newName, copyUsers = false, copyProducts = false } = req.body;
+
+      if (!newName) {
+        return res.status(400).json({ error: "Nom requis" });
+      }
+
+      // Récupérer l'organisation source
+      const orgResult = await pool.query(
+        "SELECT * FROM organizations WHERE id = $1",
+        [id],
+      );
+
+      if (orgResult.rows.length === 0) {
+        return res.status(404).json({ error: "Organisation non trouvée" });
+      }
+
+      const sourceOrg = orgResult.rows[0];
+
+      // Créer la nouvelle organisation
+      const newOrgResult = await pool.query(
+        `INSERT INTO organizations (name, type, kitchen_mode, active)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        [newName, sourceOrg.type, sourceOrg.kitchen_mode, true],
+      );
+
+      const newOrg = newOrgResult.rows[0];
+
+      // Copier les produits si demandé
+      if (copyProducts) {
+        await pool.query(
+          `INSERT INTO products (organization_id, name, price, description, category, active)
+           SELECT $1, name, price, description, category, active
+           FROM products
+           WHERE organization_id = $2`,
+          [newOrg.id, id],
+        );
+      }
+
+      // Copier les utilisateurs si demandé (sans les mots de passe)
+      if (copyUsers) {
+        await pool.query(
+          `INSERT INTO users (organization_id, name, email, phone, role, active)
+           SELECT $1, name, email || '_copy', phone, role, false
+           FROM users
+           WHERE organization_id = $2 AND role != 'admin'`,
+          [newOrg.id, id],
+        );
+      }
+
+      await logAudit(
+        "ORG_DUPLICATED",
+        req.user?.id,
+        newOrg.id,
+        {
+          source_org_id: id,
+          source_org_name: sourceOrg.name,
+          new_org_name: newName,
+          copied_users: copyUsers,
+          copied_products: copyProducts,
+        },
+        req,
+      );
+
+      res.json({
+        success: true,
+        message: "Organisation dupliquée avec succès",
+        data: newOrg,
+      });
+    } catch (error) {
+      logger.error("Duplicate org error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// POST /api/super-admin/organizations/:id/archive
+// Archiver une organisation (désactiver sans supprimer)
+router.post(
+  "/organizations/:id/archive",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+
+      // Désactiver l'organisation
+      await pool.query(
+        "UPDATE organizations SET active = false WHERE id = $1",
+        [id],
+      );
+
+      // Désactiver tous les utilisateurs
+      await pool.query(
+        "UPDATE users SET active = false WHERE organization_id = $1",
+        [id],
+      );
+
+      // Révoquer tous les tokens
+      await pool.query(
+        `DELETE FROM refresh_tokens 
+         WHERE user_id IN (SELECT id FROM users WHERE organization_id = $1)`,
+        [id],
+      );
+
+      await logAudit(
+        "ORG_ARCHIVED",
+        req.user?.id,
+        id,
+        { reason: reason || "Non spécifiée" },
+        req,
+      );
+
+      res.json({
+        success: true,
+        message: "Organisation archivée",
+      });
+    } catch (error) {
+      logger.error("Archive org error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// POST /api/super-admin/organizations/:id/restore
+// Restaurer une organisation archivée
+router.post(
+  "/organizations/:id/restore",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Réactiver l'organisation
+      await pool.query("UPDATE organizations SET active = true WHERE id = $1", [
+        id,
+      ]);
+
+      // Réactiver les utilisateurs admin
+      await pool.query(
+        "UPDATE users SET active = true WHERE organization_id = $1 AND role = 'admin'",
+        [id],
+      );
+
+      await logAudit("ORG_RESTORED", req.user?.id, id, {}, req);
+
+      res.json({
+        success: true,
+        message: "Organisation restaurée",
+      });
+    } catch (error) {
+      logger.error("Restore org error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// POST /api/super-admin/users/:userId/transfer
+// Transférer un utilisateur vers une autre organisation
+router.post(
+  "/users/:userId/transfer",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { targetOrgId } = req.body;
+
+      if (!targetOrgId) {
+        return res.status(400).json({ error: "Organisation cible requise" });
+      }
+
+      // Vérifier que l'utilisateur existe
+      const userResult = await pool.query("SELECT * FROM users WHERE id = $1", [
+        userId,
+      ]);
+
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({ error: "Utilisateur non trouvé" });
+      }
+
+      const user = userResult.rows[0];
+
+      // Vérifier que l'organisation cible existe
+      const orgResult = await pool.query(
+        "SELECT * FROM organizations WHERE id = $1",
+        [targetOrgId],
+      );
+
+      if (orgResult.rows.length === 0) {
+        return res
+          .status(404)
+          .json({ error: "Organisation cible non trouvée" });
+      }
+
+      // Transférer l'utilisateur
+      await pool.query("UPDATE users SET organization_id = $1 WHERE id = $2", [
+        targetOrgId,
+        userId,
+      ]);
+
+      // Révoquer les tokens
+      await pool.query("DELETE FROM refresh_tokens WHERE user_id = $1", [
+        userId,
+      ]);
+
+      await logAudit(
+        "USER_TRANSFERRED",
+        req.user?.id,
+        targetOrgId,
+        {
+          user_id: userId,
+          user_email: user.email,
+          from_org_id: user.organization_id,
+          to_org_id: targetOrgId,
+        },
+        req,
+      );
+
+      res.json({
+        success: true,
+        message: "Utilisateur transféré",
+      });
+    } catch (error) {
+      logger.error("Transfer user error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// GET /api/super-admin/reports/generate
+// Générer un rapport global
+router.get("/reports/generate", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { type = "summary", days = 30 } = req.query;
+
+    const report = {
+      generated_at: new Date(),
+      period_days: days,
+      type,
+    };
+
+    if (type === "summary" || type === "all") {
+      // Statistiques globales
+      const globalStats = await pool.query(`
+        SELECT 
+          COUNT(DISTINCT o.id) as total_organizations,
+          COUNT(DISTINCT u.id) as total_users,
+          COUNT(DISTINCT ord.id) as total_orders,
+          COALESCE(SUM(ord.total), 0) as total_revenue
+        FROM organizations o
+        LEFT JOIN users u ON o.id = u.organization_id
+        LEFT JOIN orders ord ON o.id = ord.organization_id
+        WHERE ord.created_at > NOW() - INTERVAL '${days} days'
+      `);
+
+      report.global_stats = globalStats.rows[0];
+    }
+
+    if (type === "organizations" || type === "all") {
+      // Performance par organisation
+      const orgPerformance = await pool.query(`
+        SELECT 
+          o.id,
+          o.name,
+          o.type,
+          o.active,
+          COUNT(DISTINCT u.id) as users_count,
+          COUNT(DISTINCT ord.id) as orders_count,
+          COALESCE(SUM(ord.total), 0) as revenue,
+          COALESCE(AVG(ord.total), 0) as avg_order_value
+        FROM organizations o
+        LEFT JOIN users u ON o.id = u.organization_id
+        LEFT JOIN orders ord ON o.id = ord.organization_id 
+          AND ord.created_at > NOW() - INTERVAL '${days} days'
+        GROUP BY o.id, o.name, o.type, o.active
+        ORDER BY revenue DESC
+      `);
+
+      report.organizations_performance = orgPerformance.rows;
+    }
+
+    if (type === "security" || type === "all") {
+      // Incidents de sécurité
+      const securityIncidents = await pool.query(`
+        SELECT 
+          COUNT(*) as failed_logins,
+          COUNT(DISTINCT details->>'ip') as unique_ips,
+          COUNT(DISTINCT details->>'email') as unique_emails
+        FROM audit_logs
+        WHERE action = 'LOGIN_FAILED'
+          AND created_at > NOW() - INTERVAL '${days} days'
+      `);
+
+      report.security_incidents = securityIncidents.rows[0];
+    }
+
+    if (type === "activity" || type === "all") {
+      // Activité par jour
+      const dailyActivity = await pool.query(`
+        SELECT 
+          DATE(created_at) as date,
+          COUNT(*) as actions_count
+        FROM audit_logs
+        WHERE created_at > NOW() - INTERVAL '${days} days'
+        GROUP BY DATE(created_at)
+        ORDER BY date DESC
+      `);
+
+      report.daily_activity = dailyActivity.rows;
+    }
+
+    await logAudit("REPORT_GENERATED", req.user?.id, null, { type, days }, req);
+
+    res.json({
+      success: true,
+      data: report,
+    });
+  } catch (error) {
+    logger.error("Generate report error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/health
+// Vérification de la santé du système
+router.get("/health", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const health = {
+      status: "healthy",
+      timestamp: new Date(),
+      checks: {},
+    };
+
+    // Vérifier la connexion à la base de données
+    try {
+      await pool.query("SELECT 1");
+      health.checks.database = { status: "ok" };
+    } catch (error) {
+      health.checks.database = { status: "error", message: error.message };
+      health.status = "unhealthy";
+    }
+
+    // Vérifier les organisations actives
+    const activeOrgs = await pool.query(
+      "SELECT COUNT(*) as count FROM organizations WHERE active = true",
+    );
+    health.checks.active_organizations = {
+      status: "ok",
+      count: parseInt(activeOrgs.rows[0].count),
+    };
+
+    // Vérifier les sessions actives
+    const activeSessions = await pool.query(
+      "SELECT COUNT(*) as count FROM refresh_tokens WHERE expires_at > NOW()",
+    );
+    health.checks.active_sessions = {
+      status: "ok",
+      count: parseInt(activeSessions.rows[0].count),
+    };
+
+    // Vérifier les erreurs récentes (dernière heure)
+    const recentErrors = await pool.query(`
+      SELECT COUNT(*) as count
+      FROM audit_logs
+      WHERE (action LIKE '%ERROR%' OR action LIKE '%FAILED%')
+        AND created_at > NOW() - INTERVAL '1 hour'
+    `);
+
+    const errorCount = parseInt(recentErrors.rows[0].count);
+    health.checks.recent_errors = {
+      status: errorCount > 50 ? "warning" : "ok",
+      count: errorCount,
+    };
+
+    if (errorCount > 50) {
+      health.status = "degraded";
+    }
+
+    // Vérifier l'espace disque (si disponible)
+    health.checks.disk_space = { status: "ok", message: "Non vérifié" };
+
+    res.json({
+      success: true,
+      data: health,
+    });
+  } catch (error) {
+    logger.error("Health check error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({
+      success: false,
+      data: {
+        status: "unhealthy",
+        error: error.message,
+      },
+    });
+  }
+});
+
+// GET /api/super-admin/organizations/archived
+// Liste des organisations archivées
+router.get(
+  "/organizations/archived",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const archived = await pool.query(`
+      SELECT 
+        o.*,
+        COUNT(DISTINCT u.id) as users_count,
+        COUNT(DISTINCT ord.id) as orders_count,
+        COALESCE(SUM(ord.total), 0) as total_revenue
+      FROM organizations o
+      LEFT JOIN users u ON o.id = u.organization_id
+      LEFT JOIN orders ord ON o.id = ord.organization_id
+      WHERE o.active = false
+      GROUP BY o.id
+      ORDER BY o.updated_at DESC
+    `);
+
+      res.json({
+        success: true,
+        data: archived.rows,
+      });
+    } catch (error) {
+      logger.error("Get archived orgs error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// POST /api/super-admin/notifications/configure
+// Configurer les notifications personnalisées
+router.post(
+  "/notifications/configure",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { type, enabled, threshold, recipients } = req.body;
+
+      // Créer la table si elle n'existe pas
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS notification_configs (
+          id SERIAL PRIMARY KEY,
+          type VARCHAR(100) NOT NULL,
+          enabled BOOLEAN DEFAULT true,
+          threshold INTEGER,
+          recipients TEXT[],
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW(),
+          UNIQUE(type)
+        )
+      `);
+
+      // Insérer ou mettre à jour la configuration
+      await pool.query(
+        `INSERT INTO notification_configs (type, enabled, threshold, recipients)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (type) DO UPDATE SET
+           enabled = $2,
+           threshold = $3,
+           recipients = $4,
+           updated_at = NOW()`,
+        [type, enabled, threshold, recipients],
+      );
+
+      await logAudit(
+        "NOTIFICATION_CONFIGURED",
+        req.user?.id,
+        null,
+        { type, enabled, threshold },
+        req,
+      );
+
+      res.json({
+        success: true,
+        message: "Configuration enregistrée",
+      });
+    } catch (error) {
+      logger.error("Configure notification error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// GET /api/super-admin/notifications/configs
+// Récupérer les configurations de notifications
+router.get(
+  "/notifications/configs",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const configs = await pool.query(`
+      SELECT * FROM notification_configs
+      ORDER BY type
+    `);
+
+      res.json({
+        success: true,
+        data: configs.rows,
+      });
+    } catch (error) {
+      // Table n'existe peut-être pas encore
+      res.json({
+        success: true,
+        data: [],
+      });
+    }
+  },
+);

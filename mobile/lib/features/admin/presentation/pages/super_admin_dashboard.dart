@@ -285,6 +285,16 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
             icon: const Icon(Icons.backup),
             label: const Text('Créer un backup'),
           ),
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            onPressed: _checkSystemHealth,
+            icon: const Icon(Icons.health_and_safety),
+            label: const Text('Santé du système'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+          ),
         ],
       ),
     );
@@ -314,13 +324,30 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: ElevatedButton.icon(
-              onPressed: _showCreateOrgDialog,
-              icon: const Icon(Icons.add),
-              label: const Text('Créer une organisation'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 48),
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _showCreateOrgDialog,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Créer'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _showArchivedOrganizations,
+                    icon: const Icon(Icons.archive),
+                    label: const Text('Archivées'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -357,6 +384,17 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                                 ),
                               ),
                             ),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          child: ListTile(
+                            leading: const Icon(Icons.copy),
+                            title: const Text('Dupliquer'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onTap: () => Future.delayed(
+                            Duration.zero,
+                            () => _showDuplicateOrgDialog(org),
                           ),
                         ),
                         PopupMenuItem(
@@ -401,6 +439,19 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                           onTap: () => Future.delayed(
                             Duration.zero,
                             () => _toggleOrgStatus(org['id'], !org['active']),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          child: ListTile(
+                            leading: Icon(org['active'] ? Icons.archive : Icons.unarchive),
+                            title: Text(org['active'] ? 'Archiver' : 'Restaurer'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onTap: () => Future.delayed(
+                            Duration.zero,
+                            () => org['active'] 
+                                ? _archiveOrganization(org['id'], org['name'])
+                                : _restoreOrganization(org['id'], org['name']),
                           ),
                         ),
                         PopupMenuItem(
@@ -2110,5 +2161,375 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
         SnackBar(content: Text('Erreur: $e')),
       );
     }
+  }
+
+  // ============================================
+  // PHASE 3 - GESTION AVANCÉE DES ORGANISATIONS
+  // ============================================
+
+  void _showDuplicateOrgDialog(Map<String, dynamic> org) {
+    final nameController = TextEditingController();
+    bool copyUsers = false;
+    bool copyProducts = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Dupliquer "${org['name']}"'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nom de la nouvelle organisation',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              CheckboxListTile(
+                title: const Text('Copier les produits'),
+                value: copyProducts,
+                onChanged: (value) {
+                  setState(() => copyProducts = value ?? false);
+                },
+                contentPadding: EdgeInsets.zero,
+              ),
+              CheckboxListTile(
+                title: const Text('Copier les utilisateurs'),
+                subtitle: const Text('(désactivés par défaut)'),
+                value: copyUsers,
+                onChanged: (value) {
+                  setState(() => copyUsers = value ?? false);
+                },
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Nom requis')),
+                  );
+                  return;
+                }
+
+                Navigator.pop(context);
+                await _duplicateOrganization(
+                  org['id'],
+                  nameController.text,
+                  copyUsers,
+                  copyProducts,
+                );
+              },
+              child: const Text('Dupliquer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _duplicateOrganization(
+    String orgId,
+    String newName,
+    bool copyUsers,
+    bool copyProducts,
+  ) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/organizations/$orgId/duplicate'),
+        headers: headers,
+        body: json.encode({
+          'newName': newName,
+          'copyUsers': copyUsers,
+          'copyProducts': copyProducts,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Organisation dupliquée avec succès')),
+        );
+        _loadOrganizations();
+      } else {
+        final error = json.decode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${error['error']}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Future<void> _archiveOrganization(String orgId, String orgName) async {
+    final reasonController = TextEditingController();
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Archiver "$orgName"'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Cette action va désactiver l\'organisation et tous ses utilisateurs.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                labelText: 'Raison (optionnel)',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Archiver'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final headers = await _getHeaders();
+        final response = await http.post(
+          Uri.parse('${ApiConstants.baseUrl}/super-admin/organizations/$orgId/archive'),
+          headers: headers,
+          body: json.encode({'reason': reasonController.text}),
+        );
+
+        if (response.statusCode == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Organisation archivée')),
+          );
+          _loadOrganizations();
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _restoreOrganization(String orgId, String orgName) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Restaurer "$orgName"'),
+        content: const Text('Cette action va réactiver l\'organisation et ses administrateurs.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Restaurer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final headers = await _getHeaders();
+        final response = await http.post(
+          Uri.parse('${ApiConstants.baseUrl}/super-admin/organizations/$orgId/restore'),
+          headers: headers,
+        );
+
+        if (response.statusCode == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Organisation restaurée')),
+          );
+          _loadOrganizations();
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showArchivedOrganizations() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/organizations/archived'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final archived = data['data'] as List<dynamic>;
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Organisations archivées'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 400,
+              child: archived.isEmpty
+                  ? const Center(child: Text('Aucune organisation archivée'))
+                  : ListView.builder(
+                      itemCount: archived.length,
+                      itemBuilder: (context, index) {
+                        final org = archived[index];
+                        return Card(
+                          child: ListTile(
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.grey,
+                              child: Icon(Icons.archive, color: Colors.white),
+                            ),
+                            title: Text(org['name']),
+                            subtitle: Text(
+                              'Type: ${org['type']}\n'
+                              'Utilisateurs: ${org['users_count']} • '
+                              'Commandes: ${org['orders_count']}',
+                            ),
+                            isThreeLine: true,
+                            trailing: IconButton(
+                              icon: const Icon(Icons.unarchive, color: Colors.green),
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _restoreOrganization(org['id'], org['name']);
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Future<void> _checkSystemHealth() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/health'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final health = data['data'];
+        final status = health['status'];
+        final checks = health['checks'];
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(
+                  status == 'healthy' ? Icons.check_circle : Icons.warning,
+                  color: status == 'healthy' ? Colors.green : Colors.orange,
+                ),
+                const SizedBox(width: 8),
+                Text('Santé du système: $status'),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildHealthCheck('Base de données', checks['database']),
+                    _buildHealthCheck('Organisations actives', checks['active_organizations']),
+                    _buildHealthCheck('Sessions actives', checks['active_sessions']),
+                    _buildHealthCheck('Erreurs récentes', checks['recent_errors']),
+                    _buildHealthCheck('Espace disque', checks['disk_space']),
+                    const Divider(height: 24),
+                    Text('Dernière vérification: ${health['timestamp']}',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Widget _buildHealthCheck(String label, Map<String, dynamic> check) {
+    final status = check['status'];
+    final color = status == 'ok' ? Colors.green : 
+                  status == 'warning' ? Colors.orange : Colors.red;
+    
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(
+            status == 'ok' ? Icons.check_circle : Icons.warning,
+            color: color,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+                if (check['count'] != null)
+                  Text('${check['count']}', style: const TextStyle(fontSize: 12)),
+                if (check['message'] != null)
+                  Text(check['message'], style: const TextStyle(fontSize: 12)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
