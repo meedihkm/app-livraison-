@@ -816,3 +816,373 @@ router.get("/error-logs", authenticateSuperAdmin, async (req, res) => {
 });
 
 module.exports = router;
+
+// ============================================
+// NOUVELLES FONCTIONNALITÉS SUPER ADMIN
+// ============================================
+
+// GET /api/super-admin/organizations/:id/users
+// Liste détaillée des utilisateurs d'une organisation
+router.get(
+  "/organizations/:id/users",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const users = await pool.query(
+        `
+      SELECT 
+        u.id,
+        u.email,
+        u.name,
+        u.phone,
+        u.role,
+        u.active,
+        u.created_at,
+        u.last_login,
+        COUNT(DISTINCT o.id) as total_orders,
+        COUNT(DISTINCT d.id) as total_deliveries,
+        COALESCE(SUM(o.total), 0) as total_revenue
+      FROM users u
+      LEFT JOIN orders o ON u.id = o.customer_id
+      LEFT JOIN deliveries d ON u.id = d.deliverer_id
+      WHERE u.organization_id = $1
+      GROUP BY u.id, u.email, u.name, u.phone, u.role, u.active, u.created_at, u.last_login
+      ORDER BY u.created_at DESC
+    `,
+        [id],
+      );
+
+      res.json({
+        success: true,
+        data: users.rows,
+      });
+    } catch (error) {
+      logger.error("Get org users error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// GET /api/super-admin/organizations/:id/stats
+// Statistiques détaillées d'une organisation
+router.get(
+  "/organizations/:id/stats",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { days = 30 } = req.query;
+
+      // Stats générales
+      const stats = await pool.query(
+        `
+      SELECT 
+        COUNT(DISTINCT u.id) as total_users,
+        COUNT(DISTINCT CASE WHEN u.role = 'customer' THEN u.id END) as customers,
+        COUNT(DISTINCT CASE WHEN u.role = 'deliverer' THEN u.id END) as deliverers,
+        COUNT(DISTINCT CASE WHEN u.role = 'admin' THEN u.id END) as admins,
+        COUNT(DISTINCT o.id) as total_orders,
+        COALESCE(SUM(o.total), 0) as total_revenue,
+        COUNT(DISTINCT d.id) as total_deliveries,
+        COUNT(DISTINCT p.id) as total_products
+      FROM organizations org
+      LEFT JOIN users u ON org.id = u.organization_id
+      LEFT JOIN orders o ON org.id = o.organization_id
+      LEFT JOIN deliveries d ON org.id = d.organization_id
+      LEFT JOIN products p ON org.id = p.organization_id
+      WHERE org.id = $1
+    `,
+        [id],
+      );
+
+      // Stats période récente
+      const recentStats = await pool.query(
+        `
+      SELECT 
+        COUNT(DISTINCT o.id) as orders_period,
+        COALESCE(SUM(o.total), 0) as revenue_period,
+        COUNT(DISTINCT d.id) as deliveries_period,
+        COUNT(DISTINCT o.customer_id) as active_customers
+      FROM orders o
+      LEFT JOIN deliveries d ON o.id = d.order_id
+      WHERE o.organization_id = $1 
+        AND o.created_at > NOW() - INTERVAL '${days} days'
+    `,
+        [id],
+      );
+
+      // Top clients
+      const topCustomers = await pool.query(
+        `
+      SELECT 
+        u.id,
+        u.name,
+        u.email,
+        COUNT(o.id) as order_count,
+        COALESCE(SUM(o.total), 0) as total_spent
+      FROM users u
+      JOIN orders o ON u.id = o.customer_id
+      WHERE u.organization_id = $1
+      GROUP BY u.id, u.name, u.email
+      ORDER BY total_spent DESC
+      LIMIT 10
+    `,
+        [id],
+      );
+
+      res.json({
+        success: true,
+        data: {
+          general: stats.rows[0],
+          recent: recentStats.rows[0],
+          topCustomers: topCustomers.rows,
+        },
+      });
+    } catch (error) {
+      logger.error("Get org stats error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// PATCH /api/super-admin/users/:id/toggle
+// Activer/désactiver un utilisateur
+router.patch("/users/:id/toggle", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { active } = req.body;
+
+    await pool.query("UPDATE users SET active = $1 WHERE id = $2", [
+      active,
+      id,
+    ]);
+
+    // Révoquer les tokens si désactivation
+    if (!active) {
+      await pool.query("DELETE FROM refresh_tokens WHERE user_id = $1", [id]);
+    }
+
+    await logAudit("USER_TOGGLED", null, null, { userId: id, active }, req);
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error("Toggle user error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// POST /api/super-admin/users/:id/reset-password
+// Réinitialiser le mot de passe d'un utilisateur
+router.post(
+  "/users/:id/reset-password",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { newPassword } = req.body;
+
+      if (!newPassword || newPassword.length < 6) {
+        return res
+          .status(400)
+          .json({ error: "Mot de passe trop court (min 6)" });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+      await pool.query("UPDATE users SET password = $1 WHERE id = $2", [
+        hashedPassword,
+        id,
+      ]);
+
+      // Révoquer tous les tokens
+      await pool.query("DELETE FROM refresh_tokens WHERE user_id = $1", [id]);
+
+      await logAudit("PASSWORD_RESET", null, null, { userId: id }, req);
+
+      res.json({ success: true, message: "Mot de passe réinitialisé" });
+    } catch (error) {
+      logger.error("Reset password error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// GET /api/super-admin/activity
+// Logs d'activité récents (toutes organisations)
+router.get("/activity", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { limit = 50 } = req.query;
+
+    const activity = await pool.query(
+      `
+      SELECT 
+        al.*,
+        o.name as organization_name,
+        u.name as user_name,
+        u.email as user_email
+      FROM audit_logs al
+      LEFT JOIN organizations o ON al.organization_id = o.id
+      LEFT JOIN users u ON al.performed_by = u.id
+      ORDER BY al.created_at DESC
+      LIMIT $1
+    `,
+      [limit],
+    );
+
+    res.json({
+      success: true,
+      data: activity.rows,
+    });
+  } catch (error) {
+    logger.error("Activity logs error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/alerts
+// Alertes système (erreurs critiques, tentatives suspectes)
+router.get("/alerts", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const alerts = [];
+
+    // Tentatives de connexion échouées (≥5 en 1h)
+    const failedLogins = await pool.query(`
+      SELECT 
+        details->>'email' as email,
+        details->>'ip' as ip,
+        COUNT(*) as attempts,
+        MAX(created_at) as last_attempt
+      FROM audit_logs
+      WHERE action = 'LOGIN_FAILED'
+        AND created_at > NOW() - INTERVAL '1 hour'
+      GROUP BY details->>'email', details->>'ip'
+      HAVING COUNT(*) >= 5
+    `);
+
+    failedLogins.rows.forEach((row) => {
+      alerts.push({
+        type: "security",
+        severity: "high",
+        message: `${row.attempts} tentatives de connexion échouées pour ${row.email} depuis ${row.ip}`,
+        timestamp: row.last_attempt,
+      });
+    });
+
+    // Organisations inactives (aucune commande depuis 7 jours)
+    const inactiveOrgs = await pool.query(`
+      SELECT 
+        o.id,
+        o.name,
+        MAX(ord.created_at) as last_order
+      FROM organizations o
+      LEFT JOIN orders ord ON o.id = ord.organization_id
+      WHERE o.active = true
+      GROUP BY o.id, o.name
+      HAVING MAX(ord.created_at) < NOW() - INTERVAL '7 days' OR MAX(ord.created_at) IS NULL
+    `);
+
+    inactiveOrgs.rows.forEach((row) => {
+      alerts.push({
+        type: "business",
+        severity: "medium",
+        message: `Organisation "${row.name}" inactive depuis ${row.last_order ? "7+ jours" : "toujours"}`,
+        timestamp: row.last_order || new Date(),
+      });
+    });
+
+    // Erreurs récentes (dernière heure)
+    const recentErrors = await pool.query(`
+      SELECT COUNT(*) as count
+      FROM audit_logs
+      WHERE (action LIKE '%ERROR%' OR action LIKE '%FAILED%')
+        AND created_at > NOW() - INTERVAL '1 hour'
+    `);
+
+    if (parseInt(recentErrors.rows[0].count) > 10) {
+      alerts.push({
+        type: "technical",
+        severity: "high",
+        message: `${recentErrors.rows[0].count} erreurs détectées dans la dernière heure`,
+        timestamp: new Date(),
+      });
+    }
+
+    res.json({
+      success: true,
+      data: alerts.sort(
+        (a, b) => new Date(b.timestamp) - new Date(a.timestamp),
+      ),
+    });
+  } catch (error) {
+    logger.error("Alerts error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/export/organizations
+// Export CSV des organisations
+router.get(
+  "/export/organizations",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const orgs = await pool.query(`
+      SELECT 
+        o.id,
+        o.name,
+        o.type,
+        o.active,
+        o.created_at,
+        COUNT(DISTINCT u.id) as users_count,
+        COUNT(DISTINCT ord.id) as orders_count,
+        COALESCE(SUM(ord.total), 0) as total_revenue
+      FROM organizations o
+      LEFT JOIN users u ON o.id = u.organization_id
+      LEFT JOIN orders ord ON o.id = ord.organization_id
+      GROUP BY o.id, o.name, o.type, o.active, o.created_at
+      ORDER BY o.created_at DESC
+    `);
+
+      // Générer CSV
+      const csv = [
+        "ID,Nom,Type,Actif,Date création,Utilisateurs,Commandes,CA total",
+        ...orgs.rows.map(
+          (row) =>
+            `${row.id},"${row.name}",${row.type},${row.active},${row.created_at},${row.users_count},${row.orders_count},${row.total_revenue}`,
+        ),
+      ].join("\n");
+
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=organizations.csv",
+      );
+      res.send(csv);
+    } catch (error) {
+      logger.error("Export orgs error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);

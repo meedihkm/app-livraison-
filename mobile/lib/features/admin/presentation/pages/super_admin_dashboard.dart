@@ -19,11 +19,13 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
   List<dynamic> _sessions = [];
   List<dynamic> _failedLogins = [];
   List<dynamic> _errorLogs = [];
+  List<dynamic> _activity = [];
+  List<dynamic> _alerts = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
     _loadData();
   }
 
@@ -45,6 +47,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
         _loadSessions(),
         _loadFailedLogins(),
         _loadErrorLogs(),
+        _loadActivity(),
+        _loadAlerts(),
       ]);
     } catch (e) {
       if (mounted) {
@@ -117,6 +121,30 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
     }
   }
 
+  Future<void> _loadActivity() async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('${ApiConstants.baseUrl}/super-admin/activity?limit=50'),
+      headers: headers,
+    );
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      setState(() => _activity = data['data']);
+    }
+  }
+
+  Future<void> _loadAlerts() async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('${ApiConstants.baseUrl}/super-admin/alerts'),
+      headers: headers,
+    );
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      setState(() => _alerts = data['data']);
+    }
+  }
+
   Future<void> _revokeSession(String sessionId) async {
     final headers = await _getHeaders();
     final response = await http.delete(
@@ -150,6 +178,13 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
     return Scaffold(
       appBar: AppBar(
         title: const Text('Super Admin'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+            tooltip: 'Déconnexion',
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -159,6 +194,8 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
             Tab(text: 'Sessions'),
             Tab(text: 'Sécurité'),
             Tab(text: 'Logs'),
+            Tab(text: 'Activité'),
+            Tab(text: 'Alertes'),
           ],
         ),
       ),
@@ -172,9 +209,39 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                 _buildSessions(),
                 _buildSecurity(),
                 _buildLogs(),
+                _buildActivity(),
+                _buildAlerts(),
               ],
             ),
     );
+  }
+
+  Future<void> _logout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Déconnexion'),
+        content: const Text('Voulez-vous vraiment vous déconnecter?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Déconnexion', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final storage = SecureStorage();
+      await storage.clearAll();
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/');
+      }
+    }
   }
 
   Widget _buildDashboard() {
@@ -256,6 +323,28 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                     trailing: PopupMenuButton(
                       icon: const Icon(Icons.more_vert),
                       itemBuilder: (context) => [
+                        PopupMenuItem(
+                          child: ListTile(
+                            leading: const Icon(Icons.people),
+                            title: const Text('Utilisateurs'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onTap: () => Future.delayed(
+                            Duration.zero,
+                            () => _showOrgUsers(org['id'], org['name']),
+                          ),
+                        ),
+                        PopupMenuItem(
+                          child: ListTile(
+                            leading: const Icon(Icons.bar_chart),
+                            title: const Text('Statistiques'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onTap: () => Future.delayed(
+                            Duration.zero,
+                            () => _showOrgStats(org['id'], org['name']),
+                          ),
+                        ),
                         PopupMenuItem(
                           child: ListTile(
                             leading: const Icon(Icons.edit),
@@ -801,5 +890,387 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  // ============================================
+  // NOUVEAUX ONGLETS
+  // ============================================
+
+  Widget _buildActivity() {
+    return RefreshIndicator(
+      onRefresh: _loadActivity,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _activity.length,
+        itemBuilder: (context, index) {
+          final log = _activity[index];
+          return Card(
+            child: ListTile(
+              leading: CircleAvatar(
+                child: Icon(_getActionIcon(log['action'])),
+              ),
+              title: Text(log['action']),
+              subtitle: Text(
+                '${log['organization_name'] ?? 'N/A'}\n'
+                '${log['user_name'] ?? 'Système'} (${log['user_email'] ?? 'N/A'})\n'
+                '${log['created_at']}',
+              ),
+              isThreeLine: true,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAlerts() {
+    if (_alerts.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle, size: 64, color: Colors.green),
+            SizedBox(height: 16),
+            Text('Aucune alerte', style: TextStyle(fontSize: 18)),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadAlerts,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _alerts.length,
+        itemBuilder: (context, index) {
+          final alert = _alerts[index];
+          final color = _getAlertColor(alert['severity']);
+          return Card(
+            color: color.withOpacity(0.1),
+            child: ListTile(
+              leading: Icon(
+                _getAlertIcon(alert['type']),
+                color: color,
+                size: 32,
+              ),
+              title: Text(
+                alert['message'],
+                style: TextStyle(color: color, fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(alert['timestamp']),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  IconData _getActionIcon(String action) {
+    if (action.contains('LOGIN')) return Icons.login;
+    if (action.contains('LOGOUT')) return Icons.logout;
+    if (action.contains('CREATE')) return Icons.add;
+    if (action.contains('UPDATE')) return Icons.edit;
+    if (action.contains('DELETE')) return Icons.delete;
+    if (action.contains('ERROR')) return Icons.error;
+    return Icons.info;
+  }
+
+  Color _getAlertColor(String severity) {
+    switch (severity) {
+      case 'high':
+        return Colors.red;
+      case 'medium':
+        return Colors.orange;
+      case 'low':
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getAlertIcon(String type) {
+    switch (type) {
+      case 'security':
+        return Icons.security;
+      case 'business':
+        return Icons.business;
+      case 'technical':
+        return Icons.build;
+      default:
+        return Icons.warning;
+    }
+  }
+
+  // ============================================
+  // GESTION DES UTILISATEURS
+  // ============================================
+
+  void _showOrgUsers(String orgId, String orgName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Utilisateurs - $orgName'),
+        content: FutureBuilder(
+          future: _loadOrgUsers(orgId),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Text('Erreur: ${snapshot.error}');
+            }
+            final users = snapshot.data as List<dynamic>?;
+            if (users == null || users.isEmpty) {
+              return const Text('Aucun utilisateur');
+            }
+
+            return SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: users.length,
+                itemBuilder: (context, index) {
+                  final user = users[index];
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: user['active'] ? Colors.green : Colors.grey,
+                      child: Text(user['role'][0].toUpperCase()),
+                    ),
+                    title: Text(user['name']),
+                    subtitle: Text(
+                      '${user['email']}\n'
+                      'Rôle: ${user['role']} • '
+                      'Commandes: ${user['total_orders']} • '
+                      'CA: ${user['total_revenue']} DA',
+                    ),
+                    isThreeLine: true,
+                    trailing: PopupMenuButton(
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          child: ListTile(
+                            leading: Icon(user['active'] ? Icons.block : Icons.check_circle),
+                            title: Text(user['active'] ? 'Désactiver' : 'Activer'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            _toggleUser(user['id'], !user['active']);
+                          },
+                        ),
+                        PopupMenuItem(
+                          child: const ListTile(
+                            leading: Icon(Icons.lock_reset),
+                            title: Text('Réinitialiser MDP'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            _resetUserPassword(user['id'], user['name']);
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<List<dynamic>> _loadOrgUsers(String orgId) async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('${ApiConstants.baseUrl}/super-admin/organizations/$orgId/users'),
+      headers: headers,
+    );
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['data'];
+    }
+    return [];
+  }
+
+  void _showOrgStats(String orgId, String orgName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Statistiques - $orgName'),
+        content: FutureBuilder(
+          future: _loadOrgStats(orgId),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Text('Erreur: ${snapshot.error}');
+            }
+            final stats = snapshot.data as Map<String, dynamic>?;
+            if (stats == null) return const Text('Aucune donnée');
+
+            final general = stats['general'];
+            final recent = stats['recent'];
+            final topCustomers = stats['topCustomers'] as List<dynamic>;
+
+            return SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Général', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    Text('Utilisateurs: ${general['total_users']}'),
+                    Text('Clients: ${general['customers']}'),
+                    Text('Livreurs: ${general['deliverers']}'),
+                    Text('Commandes: ${general['total_orders']}'),
+                    Text('CA total: ${general['total_revenue']} DA'),
+                    const Divider(height: 24),
+                    Text('30 derniers jours', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    Text('Commandes: ${recent['orders_period']}'),
+                    Text('CA: ${recent['revenue_period']} DA'),
+                    Text('Clients actifs: ${recent['active_customers']}'),
+                    const Divider(height: 24),
+                    Text('Top 10 clients', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ...topCustomers.map((customer) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        '${customer['name']}: ${customer['total_spent']} DA (${customer['order_count']} cmd)',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    )),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _loadOrgStats(String orgId) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/organizations/$orgId/stats?days=30'),
+        headers: headers,
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['data'];
+      }
+    } catch (e) {
+      return null;
+    }
+    return null;
+  }
+
+  Future<void> _toggleUser(String userId, bool active) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.patch(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/users/$userId/toggle'),
+        headers: headers,
+        body: json.encode({'active': active}),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Utilisateur ${active ? 'activé' : 'désactivé'}')),
+        );
+      } else {
+        final error = json.decode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${error['error']}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  void _resetUserPassword(String userId, String userName) {
+    final passwordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Réinitialiser MDP - $userName'),
+        content: TextField(
+          controller: passwordController,
+          decoration: const InputDecoration(
+            labelText: 'Nouveau mot de passe (min 6)',
+            border: OutlineInputBorder(),
+          ),
+          obscureText: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (passwordController.text.length < 6) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Mot de passe trop court')),
+                );
+                return;
+              }
+
+              Navigator.pop(context);
+              await _performPasswordReset(userId, passwordController.text);
+            },
+            child: const Text('Réinitialiser'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _performPasswordReset(String userId, String newPassword) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/users/$userId/reset-password'),
+        headers: headers,
+        body: json.encode({'newPassword': newPassword}),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Mot de passe réinitialisé')),
+        );
+      } else {
+        final error = json.decode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${error['error']}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
   }
 }
