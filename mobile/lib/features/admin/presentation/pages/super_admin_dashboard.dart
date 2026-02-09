@@ -599,13 +599,19 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                           children: [
                             _buildDetailRow('Adresse IP', login['ip'] ?? 'N/A'),
                             _buildDetailRow('Première tentative', 
-                                login['first_attempt']?.substring(0, 19) ?? 'N/A'),
+                                login['first_attempt'] != null && login['first_attempt'].toString().length >= 19
+                                    ? login['first_attempt'].substring(0, 19)
+                                    : login['first_attempt']?.toString() ?? 'N/A'),
                             _buildDetailRow('Dernière tentative', 
-                                login['last_attempt']?.substring(0, 19) ?? 'N/A'),
+                                login['last_attempt'] != null && login['last_attempt'].toString().length >= 19
+                                    ? login['last_attempt'].substring(0, 19)
+                                    : login['last_attempt']?.toString() ?? 'N/A'),
                             _buildDetailRow('Raisons', 
                                 (login['reasons'] as List?)?.join(', ') ?? 'N/A'),
                             _buildDetailRow('Navigateur', 
-                                login['user_agent']?.substring(0, 50) ?? 'N/A'),
+                                login['user_agent'] != null && login['user_agent'].toString().length > 50
+                                    ? login['user_agent'].substring(0, 50) + '...'
+                                    : login['user_agent']?.toString() ?? 'N/A'),
                             const SizedBox(height: 8),
                             ElevatedButton.icon(
                               onPressed: () => _blockIP(login['ip'], login['email']),
@@ -854,7 +860,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                           title: Text(log['action']),
                           subtitle: Text(
                             '${log['organization_name'] ?? 'N/A'} • '
-                            '${log['created_at']?.substring(0, 19) ?? 'N/A'}',
+                            '${log['created_at'] != null && log['created_at'].toString().length >= 19 ? log['created_at'].substring(0, 19) : log['created_at']?.toString() ?? 'N/A'}',
                           ),
                           children: [
                             Padding(
@@ -868,7 +874,9 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                                   _buildDetailRow('Rôle', log['user_role'] ?? 'N/A'),
                                   _buildDetailRow('Adresse IP', log['ip_address'] ?? 'N/A'),
                                   _buildDetailRow('Navigateur', 
-                                      log['user_agent']?.substring(0, 50) ?? 'N/A'),
+                                      log['user_agent'] != null && log['user_agent'].toString().length > 50
+                                          ? log['user_agent'].substring(0, 50) + '...'
+                                          : log['user_agent']?.toString() ?? 'N/A'),
                                   _buildDetailRow('Date complète', log['created_at'] ?? 'N/A'),
                                   if (log['details'] != null) ...[
                                     const SizedBox(height: 8),
@@ -1363,7 +1371,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                           subtitle: Text(
                             '${log['organization_name'] ?? 'N/A'} • '
                             '${log['user_name'] ?? 'Système'} • '
-                            '${log['created_at']?.substring(0, 19) ?? 'N/A'}',
+                            '${log['created_at'] != null && log['created_at'].toString().length >= 19 ? log['created_at'].substring(0, 19) : log['created_at']?.toString() ?? 'N/A'}',
                           ),
                           children: [
                             Padding(
@@ -1865,7 +1873,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
-                          '${item['hour']?.substring(0, 13) ?? 'N/A'}: ${item['count']} actions',
+                          '${item['hour'] != null && item['hour'].toString().length >= 13 ? item['hour'].substring(0, 13) : item['hour']?.toString() ?? 'N/A'}: ${item['count']} actions',
                           style: const TextStyle(fontSize: 12),
                         ),
                       ),
@@ -2348,11 +2356,13 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
               reservedSize: 30,
               getTitlesWidget: (value, meta) {
                 if (value.toInt() >= 0 && value.toInt() < data.length) {
-                  final date = data[value.toInt()]['date'].toString();
-                  return Text(
-                    date.substring(8, 10), // Jour uniquement
-                    style: const TextStyle(fontSize: 10),
-                  );
+                  final date = data[value.toInt()]['date']?.toString() ?? '';
+                  if (date.length >= 10) {
+                    return Text(
+                      date.substring(8, 10), // Jour uniquement
+                      style: const TextStyle(fontSize: 10),
+                    );
+                  }
                 }
                 return const Text('');
               },
@@ -3751,7 +3761,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                             Icons.calendar_month,
                           ),
                           title: Text('Rapport ${report['type']}'),
-                          subtitle: Text('Généré le ${report['generated_at']?.substring(0, 19) ?? 'N/A'}'),
+                          subtitle: Text('Généré le ${report['generated_at'] != null && report['generated_at'].toString().length >= 19 ? report['generated_at'].substring(0, 19) : report['generated_at']?.toString() ?? 'N/A'}'),
                           trailing: Text(report['format']),
                           dense: true,
                         );
