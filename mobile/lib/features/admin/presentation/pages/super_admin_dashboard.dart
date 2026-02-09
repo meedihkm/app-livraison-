@@ -26,7 +26,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
     _loadData();
   }
 
@@ -202,6 +202,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
             Tab(text: 'Logs'),
             Tab(text: 'Activité'),
             Tab(text: 'Alertes'),
+            Tab(text: 'Monitoring'),
           ],
         ),
       ),
@@ -217,6 +218,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                 _buildLogs(),
                 _buildActivity(),
                 _buildAlerts(),
+                _buildMonitoring(),
               ],
             ),
     );
@@ -2531,5 +2533,528 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
         ],
       ),
     );
+  }
+
+  // ============================================
+  // PHASE 4 - MONITORING ET PERFORMANCE
+  // ============================================
+
+  Widget _buildMonitoring() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Boutons d'action
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _showPerformanceMetrics,
+                icon: const Icon(Icons.speed),
+                label: const Text('Performance'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _showRealtimeMetrics,
+                icon: const Icon(Icons.update),
+                label: const Text('Temps réel'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _showTrendsAnalysis,
+                icon: const Icon(Icons.trending_up),
+                label: const Text('Tendances'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _showErrorsAnalysis,
+                icon: const Icon(Icons.bug_report),
+                label: const Text('Erreurs'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ElevatedButton.icon(
+          onPressed: _showRecommendations,
+          icon: const Icon(Icons.lightbulb),
+          label: const Text('Recommandations'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.amber,
+            foregroundColor: Colors.black,
+            minimumSize: const Size(double.infinity, 48),
+          ),
+        ),
+        const Divider(height: 32),
+        
+        // Informations rapides
+        const Text('Monitoring en temps réel',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        const Card(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Text('Utilisez les boutons ci-dessus pour accéder aux différentes métriques'),
+                SizedBox(height: 8),
+                Text('• Performance: Temps de réponse, requêtes lentes',
+                    style: TextStyle(fontSize: 12)),
+                Text('• Temps réel: Activité des 5 dernières minutes',
+                    style: TextStyle(fontSize: 12)),
+                Text('• Tendances: Analyse et prédictions',
+                    style: TextStyle(fontSize: 12)),
+                Text('• Erreurs: Analyse des erreurs système',
+                    style: TextStyle(fontSize: 12)),
+                Text('• Recommandations: Suggestions d\'amélioration',
+                    style: TextStyle(fontSize: 12)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showPerformanceMetrics() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/metrics/performance?hours=24'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final metrics = data['data'];
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Métriques de performance (24h)'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Base de données
+                    Text('Base de données',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    Text('Taille: ${metrics['database']['size_mb']} MB'),
+                    Text('Connexions actives: ${metrics['database']['active_connections']}'),
+                    Text('Connexions totales: ${metrics['database']['total_connections']}'),
+                    const Divider(height: 24),
+                    
+                    // Top actions
+                    Text('Actions les plus fréquentes',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ...(metrics['response_times'] as List).take(5).map((item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            '${item['action']}: ${item['request_count']} requêtes',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        )),
+                    const Divider(height: 24),
+                    
+                    // Requêtes lentes
+                    Text('Requêtes les plus lentes',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ...(metrics['slowest_queries'] as List).take(5).map((item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            '${item['action']}: ${double.parse(item['response_time'].toString()).toStringAsFixed(2)}s',
+                            style: const TextStyle(fontSize: 12, color: Colors.red),
+                          ),
+                        )),
+                    const Divider(height: 24),
+                    
+                    // Organisations actives
+                    Text('Organisations les plus actives',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ...(metrics['top_active_orgs'] as List).map((item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            '${item['name']}: ${item['activity_count']} actions',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        )),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Future<void> _showRealtimeMetrics() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/metrics/realtime'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final metrics = data['data'];
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Métriques en temps réel'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Dernière mise à jour: ${metrics['timestamp']}',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                const Divider(height: 24),
+                
+                _buildMetricRow('Actions totales (5 min)', 
+                    metrics['activity']['total_actions'].toString(), Icons.activity),
+                _buildMetricRow('Organisations actives', 
+                    metrics['activity']['active_orgs'].toString(), Icons.business),
+                _buildMetricRow('Utilisateurs actifs', 
+                    metrics['activity']['active_users'].toString(), Icons.people),
+                _buildMetricRow('Erreurs', 
+                    metrics['activity']['errors'].toString(), Icons.error,
+                    color: Colors.red),
+                const Divider(height: 16),
+                _buildMetricRow('Commandes (1 min)', 
+                    metrics['orders']['count'].toString(), Icons.shopping_cart),
+                _buildMetricRow('Sessions actives', 
+                    metrics['sessions']['count'].toString(), Icons.login),
+                _buildMetricRow('Connexions réussies (5 min)', 
+                    metrics['logins']['successful'].toString(), Icons.check_circle,
+                    color: Colors.green),
+                _buildMetricRow('Connexions échouées (5 min)', 
+                    metrics['logins']['failed'].toString(), Icons.cancel,
+                    color: Colors.red),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showRealtimeMetrics(); // Rafraîchir
+                },
+                child: const Text('Rafraîchir'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Widget _buildMetricRow(String label, String value, IconData icon, {Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: color ?? Colors.blue),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label)),
+          Text(value, 
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: color,
+              )),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showTrendsAnalysis() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/analytics/trends?days=30'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final trends = data['data'];
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Analyse des tendances (30 jours)'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Prédictions
+                    Card(
+                      color: Colors.blue.shade50,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Prédictions',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            Text('Commandes moyennes/jour (semaine prochaine): ${trends['predictions']['avg_daily_orders_next_week']}'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Organisations en croissance
+                    Text('Organisations en croissance',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ...(trends['growing_organizations'] as List).map((org) => ListTile(
+                          leading: Icon(
+                            double.parse(org['growth_rate'].toString()) > 0 
+                                ? Icons.trending_up 
+                                : Icons.trending_down,
+                            color: double.parse(org['growth_rate'].toString()) > 0 
+                                ? Colors.green 
+                                : Colors.red,
+                          ),
+                          title: Text(org['name']),
+                          subtitle: Text('${org['recent_orders']} commandes (7j)'),
+                          trailing: Text('${org['growth_rate']}%',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: double.parse(org['growth_rate'].toString()) > 0 
+                                    ? Colors.green 
+                                    : Colors.red,
+                              )),
+                          dense: true,
+                        )),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Future<void> _showErrorsAnalysis() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/errors/analysis?days=7'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final analysis = data['data'];
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Analyse des erreurs (7 jours)'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Stats de résolution
+                    Card(
+                      color: Colors.green.shade50,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Statistiques de résolution',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            Text('Types d\'erreurs: ${analysis['resolution_stats']['total_error_types']}'),
+                            Text('Résolues (>24h): ${analysis['resolution_stats']['resolved_count']}'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Erreurs par type
+                    Text('Erreurs par type',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ...(analysis['errors_by_type'] as List).take(10).map((error) => ListTile(
+                          leading: const Icon(Icons.error, color: Colors.red),
+                          title: Text(error['action'], style: const TextStyle(fontSize: 12)),
+                          trailing: Text('${error['count']}',
+                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                          dense: true,
+                        )),
+                    const Divider(height: 24),
+                    
+                    // Erreurs récurrentes
+                    Text('Erreurs récurrentes (>5 fois)',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ...(analysis['recurring_errors'] as List).map((error) => Card(
+                          color: Colors.red.shade50,
+                          child: ListTile(
+                            title: Text(error['action'], style: const TextStyle(fontSize: 12)),
+                            subtitle: Text('${error['occurrences']} occurrences'),
+                            dense: true,
+                          ),
+                        )),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Future<void> _showRecommendations() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/recommendations'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final recommendations = data['data']['recommendations'] as List<dynamic>;
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.lightbulb, color: Colors.amber),
+                const SizedBox(width: 8),
+                Text('Recommandations (${data['data']['total']})'),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 500,
+              child: recommendations.isEmpty
+                  ? const Center(child: Text('Aucune recommandation\nTout fonctionne parfaitement!'))
+                  : ListView.builder(
+                      itemCount: recommendations.length,
+                      itemBuilder: (context, index) {
+                        final rec = recommendations[index];
+                        final color = rec['priority'] == 'high' ? Colors.red :
+                                     rec['priority'] == 'medium' ? Colors.orange :
+                                     Colors.blue;
+                        
+                        return Card(
+                          color: color.withOpacity(0.1),
+                          child: ExpansionTile(
+                            leading: Icon(
+                              rec['type'] == 'error' ? Icons.error :
+                              rec['type'] == 'warning' ? Icons.warning :
+                              Icons.info,
+                              color: color,
+                            ),
+                            title: Text(rec['title']),
+                            subtitle: Text('Priorité: ${rec['priority']} • ${rec['category']}'),
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(rec['description']),
+                                    const SizedBox(height: 8),
+                                    Text('Action recommandée:',
+                                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    Text(rec['action']),
+                                    const SizedBox(height: 8),
+                                    Text('Éléments affectés: ${rec['affected_count']}',
+                                        style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
   }
 }

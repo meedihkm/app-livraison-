@@ -2860,3 +2860,638 @@ router.get(
     }
   },
 );
+
+// ============================================
+// PHASE 4 - MONITORING ET PERFORMANCE
+// ============================================
+
+// GET /api/super-admin/metrics/performance
+// Métriques de performance du système
+router.get("/metrics/performance", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { hours = 24 } = req.query;
+
+    // Temps de réponse moyen par endpoint (via audit_logs)
+    const responseTimesByAction = await pool.query(`
+      SELECT 
+        action,
+        COUNT(*) as request_count,
+        AVG(EXTRACT(EPOCH FROM (updated_at - created_at))) as avg_response_time
+      FROM audit_logs
+      WHERE created_at > NOW() - INTERVAL '${hours} hours'
+        AND updated_at IS NOT NULL
+      GROUP BY action
+      ORDER BY request_count DESC
+      LIMIT 20
+    `);
+
+    // Requêtes les plus lentes
+    const slowestQueries = await pool.query(`
+      SELECT 
+        action,
+        details,
+        EXTRACT(EPOCH FROM (updated_at - created_at)) as response_time,
+        created_at
+      FROM audit_logs
+      WHERE created_at > NOW() - INTERVAL '${hours} hours'
+        AND updated_at IS NOT NULL
+        AND EXTRACT(EPOCH FROM (updated_at - created_at)) > 1
+      ORDER BY response_time DESC
+      LIMIT 10
+    `);
+
+    // Taux d'erreur par heure
+    const errorRateByHour = await pool.query(`
+      SELECT 
+        DATE_TRUNC('hour', created_at) as hour,
+        COUNT(*) FILTER (WHERE action LIKE '%ERROR%' OR action LIKE '%FAILED%') as errors,
+        COUNT(*) as total,
+        ROUND(COUNT(*) FILTER (WHERE action LIKE '%ERROR%' OR action LIKE '%FAILED%')::numeric / NULLIF(COUNT(*), 0) * 100, 2) as error_rate
+      FROM audit_logs
+      WHERE created_at > NOW() - INTERVAL '${hours} hours'
+      GROUP BY hour
+      ORDER BY hour DESC
+    `);
+
+    // Utilisation de la base de données
+    const dbStats = await pool.query(`
+      SELECT 
+        pg_database_size(current_database()) as db_size,
+        (SELECT count(*) FROM pg_stat_activity WHERE state = 'active') as active_connections,
+        (SELECT count(*) FROM pg_stat_activity) as total_connections
+    `);
+
+    // Top organisations par activité
+    const topActiveOrgs = await pool.query(`
+      SELECT 
+        o.id,
+        o.name,
+        COUNT(al.id) as activity_count
+      FROM organizations o
+      LEFT JOIN audit_logs al ON o.id = al.organization_id
+      WHERE al.created_at > NOW() - INTERVAL '${hours} hours'
+      GROUP BY o.id, o.name
+      ORDER BY activity_count DESC
+      LIMIT 10
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        period_hours: hours,
+        response_times: responseTimesByAction.rows,
+        slowest_queries: slowestQueries.rows,
+        error_rate_by_hour: errorRateByHour.rows,
+        database: {
+          size_bytes: parseInt(dbStats.rows[0].db_size),
+          size_mb: Math.round(parseInt(dbStats.rows[0].db_size) / 1024 / 1024),
+          active_connections: parseInt(dbStats.rows[0].active_connections),
+          total_connections: parseInt(dbStats.rows[0].total_connections),
+        },
+        top_active_orgs: topActiveOrgs.rows,
+      },
+    });
+  } catch (error) {
+    logger.error("Performance metrics error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/metrics/realtime
+// Métriques en temps réel
+router.get("/metrics/realtime", authenticateSuperAdmin, async (req, res) => {
+  try {
+    // Activité des 5 dernières minutes
+    const recentActivity = await pool.query(`
+      SELECT 
+        COUNT(*) as total_actions,
+        COUNT(DISTINCT organization_id) as active_orgs,
+        COUNT(DISTINCT user_id) as active_users,
+        COUNT(*) FILTER (WHERE action LIKE '%ERROR%') as errors
+      FROM audit_logs
+      WHERE created_at > NOW() - INTERVAL '5 minutes'
+    `);
+
+    // Commandes récentes (dernière minute)
+    const recentOrders = await pool.query(`
+      SELECT COUNT(*) as count
+      FROM orders
+      WHERE created_at > NOW() - INTERVAL '1 minute'
+    `);
+
+    // Sessions actives
+    const activeSessions = await pool.query(`
+      SELECT 
+        COUNT(*) as count,
+        COUNT(DISTINCT user_id) as unique_users
+      FROM refresh_tokens
+      WHERE expires_at > NOW()
+        AND created_at > NOW() - INTERVAL '1 hour'
+    `);
+
+    // Tentatives de connexion récentes
+    const recentLogins = await pool.query(`
+      SELECT 
+        COUNT(*) FILTER (WHERE action = 'LOGIN_SUCCESS') as successful,
+        COUNT(*) FILTER (WHERE action = 'LOGIN_FAILED') as failed
+      FROM audit_logs
+      WHERE (action = 'LOGIN_SUCCESS' OR action = 'LOGIN_FAILED')
+        AND created_at > NOW() - INTERVAL '5 minutes'
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        timestamp: new Date(),
+        activity: recentActivity.rows[0],
+        orders: recentOrders.rows[0],
+        sessions: activeSessions.rows[0],
+        logins: recentLogins.rows[0],
+      },
+    });
+  } catch (error) {
+    logger.error("Realtime metrics error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/analytics/trends
+// Analyse des tendances et prédictions
+router.get("/analytics/trends", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+
+    // Tendance des commandes (croissance jour par jour)
+    const ordersTrend = await pool.query(`
+      WITH daily_orders AS (
+        SELECT 
+          DATE(created_at) as date,
+          COUNT(*) as count
+        FROM orders
+        WHERE created_at > NOW() - INTERVAL '${days} days'
+        GROUP BY DATE(created_at)
+        ORDER BY date
+      )
+      SELECT 
+        date,
+        count,
+        LAG(count) OVER (ORDER BY date) as previous_day,
+        CASE 
+          WHEN LAG(count) OVER (ORDER BY date) > 0 
+          THEN ROUND(((count - LAG(count) OVER (ORDER BY date))::numeric / LAG(count) OVER (ORDER BY date) * 100), 2)
+          ELSE 0
+        END as growth_rate
+      FROM daily_orders
+    `);
+
+    // Tendance du chiffre d'affaires
+    const revenueTrend = await pool.query(`
+      WITH daily_revenue AS (
+        SELECT 
+          DATE(created_at) as date,
+          COALESCE(SUM(total), 0) as revenue
+        FROM orders
+        WHERE created_at > NOW() - INTERVAL '${days} days'
+        GROUP BY DATE(created_at)
+        ORDER BY date
+      )
+      SELECT 
+        date,
+        revenue,
+        LAG(revenue) OVER (ORDER BY date) as previous_day,
+        CASE 
+          WHEN LAG(revenue) OVER (ORDER BY date) > 0 
+          THEN ROUND(((revenue - LAG(revenue) OVER (ORDER BY date))::numeric / LAG(revenue) OVER (ORDER BY date) * 100), 2)
+          ELSE 0
+        END as growth_rate
+      FROM daily_revenue
+    `);
+
+    // Tendance des nouveaux utilisateurs
+    const usersTrend = await pool.query(`
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as new_users,
+        role
+      FROM users
+      WHERE created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY DATE(created_at), role
+      ORDER BY date DESC, role
+    `);
+
+    // Organisations en croissance
+    const growingOrgs = await pool.query(`
+      WITH org_comparison AS (
+        SELECT 
+          o.id,
+          o.name,
+          COUNT(DISTINCT CASE WHEN ord.created_at > NOW() - INTERVAL '7 days' THEN ord.id END) as recent_orders,
+          COUNT(DISTINCT CASE WHEN ord.created_at BETWEEN NOW() - INTERVAL '14 days' AND NOW() - INTERVAL '7 days' THEN ord.id END) as previous_orders
+        FROM organizations o
+        LEFT JOIN orders ord ON o.id = ord.organization_id
+        WHERE o.active = true
+        GROUP BY o.id, o.name
+      )
+      SELECT 
+        id,
+        name,
+        recent_orders,
+        previous_orders,
+        CASE 
+          WHEN previous_orders > 0 
+          THEN ROUND(((recent_orders - previous_orders)::numeric / previous_orders * 100), 2)
+          ELSE 0
+        END as growth_rate
+      FROM org_comparison
+      WHERE recent_orders > 0
+      ORDER BY growth_rate DESC
+      LIMIT 10
+    `);
+
+    // Prédiction simple (moyenne mobile)
+    const avgOrdersLast7Days = await pool.query(`
+      SELECT ROUND(AVG(daily_count)) as avg
+      FROM (
+        SELECT COUNT(*) as daily_count
+        FROM orders
+        WHERE created_at > NOW() - INTERVAL '7 days'
+        GROUP BY DATE(created_at)
+      ) sub
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        period_days: days,
+        orders_trend: ordersTrend.rows,
+        revenue_trend: revenueTrend.rows,
+        users_trend: usersTrend.rows,
+        growing_organizations: growingOrgs.rows,
+        predictions: {
+          avg_daily_orders_next_week: parseInt(
+            avgOrdersLast7Days.rows[0].avg || 0,
+          ),
+        },
+      },
+    });
+  } catch (error) {
+    logger.error("Trends analytics error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// POST /api/super-admin/alerts/create
+// Créer une alerte personnalisée
+router.post("/alerts/create", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const {
+      name,
+      type,
+      condition,
+      threshold,
+      enabled = true,
+      notification_channels,
+    } = req.body;
+
+    if (!name || !type || !condition) {
+      return res.status(400).json({ error: "Paramètres manquants" });
+    }
+
+    // Créer la table si elle n'existe pas
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS custom_alerts (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        type VARCHAR(100) NOT NULL,
+        condition VARCHAR(255) NOT NULL,
+        threshold NUMERIC,
+        enabled BOOLEAN DEFAULT true,
+        notification_channels TEXT[],
+        last_triggered TIMESTAMP,
+        trigger_count INTEGER DEFAULT 0,
+        created_by UUID REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    const result = await pool.query(
+      `INSERT INTO custom_alerts (name, type, condition, threshold, enabled, notification_channels, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        name,
+        type,
+        condition,
+        threshold,
+        enabled,
+        notification_channels,
+        req.user?.id,
+      ],
+    );
+
+    await logAudit(
+      "ALERT_CREATED",
+      req.user?.id,
+      null,
+      { alert_name: name, type, condition },
+      req,
+    );
+
+    res.json({
+      success: true,
+      message: "Alerte créée",
+      data: result.rows[0],
+    });
+  } catch (error) {
+    logger.error("Create alert error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/alerts/list
+// Liste des alertes personnalisées
+router.get("/alerts/list", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const alerts = await pool.query(`
+      SELECT 
+        ca.*,
+        u.name as created_by_name,
+        u.email as created_by_email
+      FROM custom_alerts ca
+      LEFT JOIN users u ON ca.created_by = u.id
+      ORDER BY ca.created_at DESC
+    `);
+
+    res.json({
+      success: true,
+      data: alerts.rows,
+    });
+  } catch (error) {
+    // Table n'existe peut-être pas encore
+    res.json({
+      success: true,
+      data: [],
+    });
+  }
+});
+
+// DELETE /api/super-admin/alerts/:id
+// Supprimer une alerte
+router.delete("/alerts/:id", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await pool.query("DELETE FROM custom_alerts WHERE id = $1", [id]);
+
+    await logAudit("ALERT_DELETED", req.user?.id, null, { alert_id: id }, req);
+
+    res.json({
+      success: true,
+      message: "Alerte supprimée",
+    });
+  } catch (error) {
+    logger.error("Delete alert error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/errors/analysis
+// Analyse des erreurs système
+router.get("/errors/analysis", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { days = 7 } = req.query;
+
+    // Erreurs par type
+    const errorsByType = await pool.query(`
+      SELECT 
+        action,
+        COUNT(*) as count,
+        MAX(created_at) as last_occurrence
+      FROM audit_logs
+      WHERE (action LIKE '%ERROR%' OR action LIKE '%FAILED%')
+        AND created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY action
+      ORDER BY count DESC
+      LIMIT 20
+    `);
+
+    // Erreurs par organisation
+    const errorsByOrg = await pool.query(`
+      SELECT 
+        o.id,
+        o.name,
+        COUNT(al.id) as error_count
+      FROM organizations o
+      LEFT JOIN audit_logs al ON o.id = al.organization_id
+      WHERE (al.action LIKE '%ERROR%' OR al.action LIKE '%FAILED%')
+        AND al.created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY o.id, o.name
+      ORDER BY error_count DESC
+      LIMIT 10
+    `);
+
+    // Erreurs récurrentes (même erreur plusieurs fois)
+    const recurringErrors = await pool.query(`
+      SELECT 
+        action,
+        details->>'error' as error_message,
+        COUNT(*) as occurrences,
+        MIN(created_at) as first_seen,
+        MAX(created_at) as last_seen
+      FROM audit_logs
+      WHERE (action LIKE '%ERROR%' OR action LIKE '%FAILED%')
+        AND created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY action, details->>'error'
+      HAVING COUNT(*) > 5
+      ORDER BY occurrences DESC
+      LIMIT 10
+    `);
+
+    // Taux de résolution (erreurs qui ne se reproduisent plus)
+    const resolvedErrors = await pool.query(`
+      SELECT 
+        COUNT(DISTINCT action) as total_error_types,
+        COUNT(DISTINCT action) FILTER (WHERE last_occurrence < NOW() - INTERVAL '24 hours') as resolved_count
+      FROM (
+        SELECT 
+          action,
+          MAX(created_at) as last_occurrence
+        FROM audit_logs
+        WHERE (action LIKE '%ERROR%' OR action LIKE '%FAILED%')
+          AND created_at > NOW() - INTERVAL '${days} days'
+        GROUP BY action
+      ) sub
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        period_days: days,
+        errors_by_type: errorsByType.rows,
+        errors_by_organization: errorsByOrg.rows,
+        recurring_errors: recurringErrors.rows,
+        resolution_stats: resolvedErrors.rows[0],
+      },
+    });
+  } catch (error) {
+    logger.error("Errors analysis error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/recommendations
+// Recommandations automatiques basées sur l'analyse
+router.get("/recommendations", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const recommendations = [];
+
+    // Vérifier les organisations inactives
+    const inactiveOrgs = await pool.query(`
+      SELECT 
+        o.id,
+        o.name,
+        MAX(ord.created_at) as last_order
+      FROM organizations o
+      LEFT JOIN orders ord ON o.id = ord.organization_id
+      WHERE o.active = true
+      GROUP BY o.id, o.name
+      HAVING MAX(ord.created_at) < NOW() - INTERVAL '30 days' OR MAX(ord.created_at) IS NULL
+    `);
+
+    if (inactiveOrgs.rows.length > 0) {
+      recommendations.push({
+        type: "warning",
+        category: "organizations",
+        title: "Organisations inactives détectées",
+        description: `${inactiveOrgs.rows.length} organisation(s) sans commande depuis 30 jours`,
+        action: "Contacter ou archiver ces organisations",
+        priority: "medium",
+        affected_count: inactiveOrgs.rows.length,
+      });
+    }
+
+    // Vérifier les erreurs récurrentes
+    const recurringErrors = await pool.query(`
+      SELECT COUNT(*) as count
+      FROM (
+        SELECT action
+        FROM audit_logs
+        WHERE (action LIKE '%ERROR%' OR action LIKE '%FAILED%')
+          AND created_at > NOW() - INTERVAL '7 days'
+        GROUP BY action
+        HAVING COUNT(*) > 10
+      ) sub
+    `);
+
+    if (parseInt(recurringErrors.rows[0].count) > 0) {
+      recommendations.push({
+        type: "error",
+        category: "performance",
+        title: "Erreurs récurrentes détectées",
+        description: `${recurringErrors.rows[0].count} type(s) d'erreur se répètent fréquemment`,
+        action: "Analyser et corriger les erreurs récurrentes",
+        priority: "high",
+        affected_count: parseInt(recurringErrors.rows[0].count),
+      });
+    }
+
+    // Vérifier les utilisateurs inactifs
+    const inactiveUsers = await pool.query(`
+      SELECT COUNT(*) as count
+      FROM users
+      WHERE active = true
+        AND updated_at < NOW() - INTERVAL '90 days'
+    `);
+
+    if (parseInt(inactiveUsers.rows[0].count) > 10) {
+      recommendations.push({
+        type: "info",
+        category: "users",
+        title: "Utilisateurs inactifs",
+        description: `${inactiveUsers.rows[0].count} utilisateur(s) inactif(s) depuis 90 jours`,
+        action: "Désactiver les comptes inutilisés",
+        priority: "low",
+        affected_count: parseInt(inactiveUsers.rows[0].count),
+      });
+    }
+
+    // Vérifier la taille de la base de données
+    const dbSize = await pool.query(`
+      SELECT pg_database_size(current_database()) as size
+    `);
+
+    const sizeMB = parseInt(dbSize.rows[0].size) / 1024 / 1024;
+    if (sizeMB > 1000) {
+      recommendations.push({
+        type: "warning",
+        category: "database",
+        title: "Base de données volumineuse",
+        description: `Taille actuelle: ${Math.round(sizeMB)} MB`,
+        action: "Purger les anciens logs et données inutiles",
+        priority: "medium",
+        affected_count: Math.round(sizeMB),
+      });
+    }
+
+    // Vérifier les sessions expirées non nettoyées
+    const expiredSessions = await pool.query(`
+      SELECT COUNT(*) as count
+      FROM refresh_tokens
+      WHERE expires_at < NOW()
+    `);
+
+    if (parseInt(expiredSessions.rows[0].count) > 100) {
+      recommendations.push({
+        type: "info",
+        category: "maintenance",
+        title: "Sessions expirées à nettoyer",
+        description: `${expiredSessions.rows[0].count} session(s) expirée(s)`,
+        action: "Nettoyer les sessions expirées",
+        priority: "low",
+        affected_count: parseInt(expiredSessions.rows[0].count),
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        total: recommendations.length,
+        high_priority: recommendations.filter((r) => r.priority === "high")
+          .length,
+        medium_priority: recommendations.filter((r) => r.priority === "medium")
+          .length,
+        low_priority: recommendations.filter((r) => r.priority === "low")
+          .length,
+        recommendations: recommendations.sort((a, b) => {
+          const priorityOrder = { high: 0, medium: 1, low: 2 };
+          return priorityOrder[a.priority] - priorityOrder[b.priority];
+        }),
+      },
+    });
+  } catch (error) {
+    logger.error("Recommendations error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
