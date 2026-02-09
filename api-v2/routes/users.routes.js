@@ -42,7 +42,7 @@ const { getPagination, getPagingData } = require("../utils/pagination.helper");
  *                     $ref: '#/components/schemas/User'
  */
 // GET /api/users
-router.get("/", authenticate, cacheMiddleware(300), async (req, res) => {
+router.get("/", authenticate, cacheMiddleware(30), async (req, res) => {
   try {
     const { page, limit, offset } = getPagination(req.query, 50);
 
@@ -100,7 +100,10 @@ router.get(
       );
       res.json({ success: true, data: result.rows });
     } catch (error) {
-      logger.error("Get clients locations error:", { error: error.message, stack: error.stack });
+      logger.error("Get clients locations error:", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -201,7 +204,10 @@ router.post(
 
       res.json({ success: true, data: result.rows[0] });
     } catch (error) {
-      logger.error("Create user error:", { error: error.message, stack: error.stack });
+      logger.error("Create user error:", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -273,7 +279,10 @@ router.delete(
 
       res.json({ success: true });
     } catch (error) {
-      logger.error("Delete user error:", { error: error.message, stack: error.stack });
+      logger.error("Delete user error:", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur: " + error.message });
     }
   },
@@ -378,7 +387,10 @@ router.put(
             lng = parseFloat(data[0].lon);
           }
         } catch (geoError) {
-          logger.error("Geocoding error:", { error: geoError.message, stack: geoError.stack });
+          logger.error("Geocoding error:", {
+            error: geoError.message,
+            stack: geoError.stack,
+          });
         }
       }
 
@@ -402,7 +414,10 @@ router.put(
         data: { address, latitude: lat, longitude: lng },
       });
     } catch (error) {
-      logger.error("Update address error:", { error: error.message, stack: error.stack });
+      logger.error("Update address error:", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
@@ -451,7 +466,10 @@ router.put(
         data: { creditLimit: result.rows[0].credit_limit },
       });
     } catch (error) {
-      logger.error("Update credit limit error:", { error: error.message, stack: error.stack });
+      logger.error("Update credit limit error:", {
+        error: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Erreur serveur" });
     }
   },
