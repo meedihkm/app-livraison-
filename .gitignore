@@ -247,7 +247,6 @@ android-sdk-license.txt
 build_apk_awid.bat
 deploy-to-repo.ps1
 freezed_files.txt
-/index.js
 setup_env.ps1
 app livraison.code-workspace
 *.code-workspace
