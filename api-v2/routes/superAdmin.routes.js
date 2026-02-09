@@ -3957,3 +3957,430 @@ router.get("/reports/history", authenticateSuperAdmin, async (req, res) => {
     });
   }
 });
+
+// ============================================
+// PHASE 6 - ONGLET PARAMÈTRES
+// ============================================
+
+// GET /api/super-admin/settings
+// Récupérer tous les paramètres
+router.get("/settings", authenticateSuperAdmin, async (req, res) => {
+  try {
+    // Créer la table si elle n'existe pas
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        id SERIAL PRIMARY KEY,
+        category VARCHAR(50) NOT NULL,
+        key VARCHAR(100) NOT NULL,
+        value JSONB NOT NULL,
+        description TEXT,
+        updated_by UUID REFERENCES users(id),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(category, key)
+      )
+    `);
+
+    // Récupérer tous les paramètres
+    const settings = await pool.query(`
+      SELECT * FROM system_settings
+      ORDER BY category, key
+    `);
+
+    // Si aucun paramètre, créer les paramètres par défaut
+    if (settings.rows.length === 0) {
+      const defaultSettings = [
+        {
+          category: "security",
+          key: "session_duration",
+          value: { hours: 24 },
+          description: "Durée de session en heures",
+        },
+        {
+          category: "security",
+          key: "max_login_attempts",
+          value: { attempts: 5 },
+          description: "Nombre max de tentatives de connexion",
+        },
+        {
+          category: "security",
+          key: "require_2fa",
+          value: { enabled: false },
+          description: "2FA obligatoire pour tous",
+        },
+        {
+          category: "notifications",
+          key: "email_alerts",
+          value: { enabled: true },
+          description: "Alertes par email",
+        },
+        {
+          category: "notifications",
+          key: "alert_thresholds",
+          value: {
+            failed_logins: 5,
+            errors_per_hour: 10,
+            inactive_days: 7,
+          },
+          description: "Seuils d'alerte",
+        },
+        {
+          category: "maintenance",
+          key: "mode",
+          value: { enabled: false, message: "Maintenance en cours" },
+          description: "Mode maintenance",
+        },
+        {
+          category: "backup",
+          key: "auto_backup",
+          value: { enabled: true, frequency: "daily", retention: 30 },
+          description: "Backup automatique",
+        },
+      ];
+
+      for (const setting of defaultSettings) {
+        await pool.query(
+          `INSERT INTO system_settings (category, key, value, description)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (category, key) DO NOTHING`,
+          [setting.category, setting.key, setting.value, setting.description],
+        );
+      }
+
+      // Récupérer à nouveau après insertion
+      const newSettings = await pool.query(`
+        SELECT * FROM system_settings
+        ORDER BY category, key
+      `);
+
+      return res.json({
+        success: true,
+        data: newSettings.rows,
+      });
+    }
+
+    res.json({
+      success: true,
+      data: settings.rows,
+    });
+  } catch (error) {
+    logger.error("Get settings error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// PUT /api/super-admin/settings/:id
+// Mettre à jour un paramètre
+router.put("/settings/:id", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { value } = req.body;
+
+    if (!value) {
+      return res.status(400).json({ error: "Valeur requise" });
+    }
+
+    const result = await pool.query(
+      `UPDATE system_settings 
+       SET value = $1, updated_by = $2, updated_at = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [value, req.user?.id, id],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Paramètre non trouvé" });
+    }
+
+    await logAudit(
+      "SETTING_UPDATED",
+      req.user?.id,
+      null,
+      {
+        setting_id: id,
+        category: result.rows[0].category,
+        key: result.rows[0].key,
+        new_value: value,
+      },
+      req,
+    );
+
+    res.json({
+      success: true,
+      message: "Paramètre mis à jour",
+      data: result.rows[0],
+    });
+  } catch (error) {
+    logger.error("Update setting error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// POST /api/super-admin/maintenance/toggle
+// Activer/Désactiver le mode maintenance
+router.post("/maintenance/toggle", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { enabled, message } = req.body;
+
+    await pool.query(
+      `UPDATE system_settings 
+       SET value = $1, updated_by = $2, updated_at = NOW()
+       WHERE category = 'maintenance' AND key = 'mode'`,
+      [{ enabled, message: message || "Maintenance en cours" }, req.user?.id],
+    );
+
+    await logAudit(
+      "MAINTENANCE_MODE_TOGGLED",
+      req.user?.id,
+      null,
+      { enabled, message },
+      req,
+    );
+
+    res.json({
+      success: true,
+      message: enabled
+        ? "Mode maintenance activé"
+        : "Mode maintenance désactivé",
+    });
+  } catch (error) {
+    logger.error("Toggle maintenance error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// POST /api/super-admin/cache/clear
+// Vider le cache Redis
+router.post("/cache/clear", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { type = "all" } = req.body;
+
+    // Si Redis est configuré
+    const redis = require("../config/redis");
+
+    if (redis && redis.isReady) {
+      if (type === "all") {
+        await redis.flushAll();
+      } else {
+        // Vider un pattern spécifique
+        const keys = await redis.keys(`${type}:*`);
+        if (keys.length > 0) {
+          await redis.del(keys);
+        }
+      }
+
+      await logAudit("CACHE_CLEARED", req.user?.id, null, { type }, req);
+
+      res.json({
+        success: true,
+        message: `Cache ${type} vidé`,
+      });
+    } else {
+      res.json({
+        success: false,
+        message: "Redis non disponible",
+      });
+    }
+  } catch (error) {
+    logger.error("Clear cache error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// POST /api/super-admin/cleanup/sessions
+// Nettoyer les sessions expirées
+router.post("/cleanup/sessions", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `DELETE FROM refresh_tokens
+       WHERE expires_at < NOW()
+       RETURNING id`,
+    );
+
+    await logAudit(
+      "SESSIONS_CLEANED",
+      req.user?.id,
+      null,
+      { deleted_count: result.rowCount },
+      req,
+    );
+
+    res.json({
+      success: true,
+      message: `${result.rowCount} session(s) expirée(s) supprimée(s)`,
+      deleted_count: result.rowCount,
+    });
+  } catch (error) {
+    logger.error("Cleanup sessions error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// POST /api/super-admin/cleanup/logs
+// Nettoyer les anciens logs
+router.post("/cleanup/logs", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { older_than_days = 90 } = req.body;
+
+    const result = await pool.query(
+      `DELETE FROM audit_logs
+       WHERE created_at < NOW() - INTERVAL '${older_than_days} days'
+       RETURNING id`,
+    );
+
+    await logAudit(
+      "LOGS_CLEANED",
+      req.user?.id,
+      null,
+      { deleted_count: result.rowCount, older_than_days },
+      req,
+    );
+
+    res.json({
+      success: true,
+      message: `${result.rowCount} log(s) supprimé(s)`,
+      deleted_count: result.rowCount,
+    });
+  } catch (error) {
+    logger.error("Cleanup logs error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/system/info
+// Informations système
+router.get("/system/info", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const info = {
+      node_version: process.version,
+      platform: process.platform,
+      uptime: process.uptime(),
+      memory: {
+        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        external: Math.round(process.memoryUsage().external / 1024 / 1024),
+      },
+      cpu: process.cpuUsage(),
+    };
+
+    // Info base de données
+    const dbInfo = await pool.query(`
+      SELECT 
+        pg_database_size(current_database()) as db_size,
+        (SELECT count(*) FROM pg_stat_activity WHERE state = 'active') as active_connections,
+        (SELECT count(*) FROM pg_stat_activity) as total_connections,
+        version() as pg_version
+    `);
+
+    info.database = {
+      size_mb: Math.round(parseInt(dbInfo.rows[0].db_size) / 1024 / 1024),
+      active_connections: parseInt(dbInfo.rows[0].active_connections),
+      total_connections: parseInt(dbInfo.rows[0].total_connections),
+      version: dbInfo.rows[0].pg_version.split(",")[0],
+    };
+
+    // Info Redis si disponible
+    try {
+      const redis = require("../config/redis");
+      if (redis && redis.isReady) {
+        const redisInfo = await redis.info();
+        info.redis = {
+          status: "connected",
+          version:
+            redisInfo.match(/redis_version:([^\r\n]+)/)?.[1] || "unknown",
+        };
+      } else {
+        info.redis = { status: "disconnected" };
+      }
+    } catch (e) {
+      info.redis = { status: "not_configured" };
+    }
+
+    res.json({
+      success: true,
+      data: info,
+    });
+  } catch (error) {
+    logger.error("System info error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/database/stats
+// Statistiques détaillées de la base de données
+router.get("/database/stats", authenticateSuperAdmin, async (req, res) => {
+  try {
+    // Taille des tables
+    const tableSizes = await pool.query(`
+      SELECT 
+        schemaname,
+        tablename,
+        pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size,
+        pg_total_relation_size(schemaname||'.'||tablename) AS size_bytes
+      FROM pg_tables
+      WHERE schemaname = 'public'
+      ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
+      LIMIT 20
+    `);
+
+    // Nombre de lignes par table
+    const rowCounts = await pool.query(`
+      SELECT 
+        schemaname,
+        tablename,
+        n_live_tup as row_count
+      FROM pg_stat_user_tables
+      WHERE schemaname = 'public'
+      ORDER BY n_live_tup DESC
+    `);
+
+    // Index non utilisés
+    const unusedIndexes = await pool.query(`
+      SELECT 
+        schemaname,
+        tablename,
+        indexname,
+        pg_size_pretty(pg_relation_size(indexrelid)) AS size
+      FROM pg_stat_user_indexes
+      WHERE idx_scan = 0
+        AND schemaname = 'public'
+      ORDER BY pg_relation_size(indexrelid) DESC
+      LIMIT 10
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        table_sizes: tableSizes.rows,
+        row_counts: rowCounts.rows,
+        unused_indexes: unusedIndexes.rows,
+      },
+    });
+  } catch (error) {
+    logger.error("Database stats error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});

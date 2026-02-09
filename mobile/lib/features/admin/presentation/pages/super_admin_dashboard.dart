@@ -26,7 +26,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 9, vsync: this);
+    _tabController = TabController(length: 10, vsync: this);
     _loadData();
   }
 
@@ -204,6 +204,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
             Tab(text: 'Alertes'),
             Tab(text: 'Monitoring'),
             Tab(text: 'Rapports'),
+            Tab(text: 'Paramètres'),
           ],
         ),
       ),
@@ -221,6 +222,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                 _buildAlerts(),
                 _buildMonitoring(),
                 _buildReports(),
+                _buildSettings(),
               ],
             ),
     );
@@ -3477,5 +3479,464 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
         SnackBar(content: Text('Erreur: $e')),
       );
     }
+  }
+
+  // ============================================
+  // PHASE 6 - ONGLET PARAMÈTRES
+  // ============================================
+
+  Widget _buildSettings() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const Text('Paramètres système',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        
+        // Sécurité
+        Card(
+          child: ExpansionTile(
+            leading: const Icon(Icons.security, color: Colors.blue),
+            title: const Text('Sécurité'),
+            children: [
+              ListTile(
+                title: const Text('Durée de session'),
+                subtitle: const Text('24 heures par défaut'),
+                trailing: const Icon(Icons.edit),
+                onTap: () => _editSetting('security', 'session_duration'),
+              ),
+              ListTile(
+                title: const Text('Tentatives de connexion max'),
+                subtitle: const Text('5 tentatives par défaut'),
+                trailing: const Icon(Icons.edit),
+                onTap: () => _editSetting('security', 'max_login_attempts'),
+              ),
+              ListTile(
+                title: const Text('2FA obligatoire'),
+                subtitle: const Text('Désactivé par défaut'),
+                trailing: const Icon(Icons.edit),
+                onTap: () => _editSetting('security', 'require_2fa'),
+              ),
+            ],
+          ),
+        ),
+        
+        // Notifications
+        Card(
+          child: ExpansionTile(
+            leading: const Icon(Icons.notifications, color: Colors.orange),
+            title: const Text('Notifications'),
+            children: [
+              ListTile(
+                title: const Text('Alertes par email'),
+                subtitle: const Text('Activé par défaut'),
+                trailing: const Icon(Icons.edit),
+                onTap: () => _editSetting('notifications', 'email_alerts'),
+              ),
+              ListTile(
+                title: const Text('Seuils d\'alerte'),
+                subtitle: const Text('Configurer les seuils'),
+                trailing: const Icon(Icons.edit),
+                onTap: () => _editSetting('notifications', 'alert_thresholds'),
+              ),
+            ],
+          ),
+        ),
+        
+        // Maintenance
+        Card(
+          child: ExpansionTile(
+            leading: const Icon(Icons.build, color: Colors.red),
+            title: const Text('Maintenance'),
+            children: [
+              ListTile(
+                title: const Text('Mode maintenance'),
+                subtitle: const Text('Activer/Désactiver'),
+                trailing: const Icon(Icons.toggle_off),
+                onTap: _toggleMaintenanceMode,
+              ),
+            ],
+          ),
+        ),
+        
+        // Backup
+        Card(
+          child: ExpansionTile(
+            leading: const Icon(Icons.backup, color: Colors.green),
+            title: const Text('Backup'),
+            children: [
+              ListTile(
+                title: const Text('Backup automatique'),
+                subtitle: const Text('Quotidien, conservation 30 jours'),
+                trailing: const Icon(Icons.edit),
+                onTap: () => _editSetting('backup', 'auto_backup'),
+              ),
+            ],
+          ),
+        ),
+        
+        const Divider(height: 32),
+        
+        // Actions de maintenance
+        const Text('Actions de maintenance',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        
+        ElevatedButton.icon(
+          onPressed: _clearCache,
+          icon: const Icon(Icons.cleaning_services),
+          label: const Text('Vider le cache'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(double.infinity, 48),
+          ),
+        ),
+        const SizedBox(height: 8),
+        
+        ElevatedButton.icon(
+          onPressed: _cleanupSessions,
+          icon: const Icon(Icons.delete_sweep),
+          label: const Text('Nettoyer les sessions expirées'),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 48),
+          ),
+        ),
+        const SizedBox(height: 8),
+        
+        ElevatedButton.icon(
+          onPressed: _cleanupLogs,
+          icon: const Icon(Icons.delete_outline),
+          label: const Text('Nettoyer les anciens logs'),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 48),
+          ),
+        ),
+        
+        const Divider(height: 32),
+        
+        // Informations système
+        const Text('Informations système',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        
+        ElevatedButton.icon(
+          onPressed: _showSystemInfo,
+          icon: const Icon(Icons.info),
+          label: const Text('Voir les informations système'),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 48),
+          ),
+        ),
+        const SizedBox(height: 8),
+        
+        ElevatedButton.icon(
+          onPressed: _showDatabaseStats,
+          icon: const Icon(Icons.storage),
+          label: const Text('Statistiques base de données'),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 48),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _editSetting(String category, String key) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Édition des paramètres disponible prochainement')),
+    );
+  }
+
+  Future<void> _toggleMaintenanceMode() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Mode maintenance'),
+        content: const Text('Voulez-vous activer le mode maintenance?\n\nCela empêchera les utilisateurs de se connecter.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Activer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final headers = await _getHeaders();
+        final response = await http.post(
+          Uri.parse('${ApiConstants.baseUrl}/super-admin/maintenance/toggle'),
+          headers: headers,
+          body: json.encode({
+            'enabled': true,
+            'message': 'Maintenance en cours. Nous serons de retour bientôt.',
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Mode maintenance activé')),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _clearCache() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Vider le cache'),
+        content: const Text('Voulez-vous vider tout le cache Redis?\n\nCela peut temporairement ralentir l\'application.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Vider'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final headers = await _getHeaders();
+        final response = await http.post(
+          Uri.parse('${ApiConstants.baseUrl}/super-admin/cache/clear'),
+          headers: headers,
+          body: json.encode({'type': 'all'}),
+        );
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['message'])),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _cleanupSessions() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/cleanup/sessions'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message'])),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Future<void> _cleanupLogs() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nettoyer les logs'),
+        content: const Text('Supprimer tous les logs de plus de 90 jours?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final headers = await _getHeaders();
+        final response = await http.post(
+          Uri.parse('${ApiConstants.baseUrl}/super-admin/cleanup/logs'),
+          headers: headers,
+          body: json.encode({'older_than_days': 90}),
+        );
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(data['message'])),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showSystemInfo() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/system/info'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final info = data['data'];
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Informations système'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildInfoSection('Node.js', [
+                      'Version: ${info['node_version']}',
+                      'Plateforme: ${info['platform']}',
+                      'Uptime: ${(info['uptime'] / 3600).toStringAsFixed(2)}h',
+                    ]),
+                    _buildInfoSection('Mémoire', [
+                      'Total: ${info['memory']['total']} MB',
+                      'Utilisée: ${info['memory']['used']} MB',
+                      'Externe: ${info['memory']['external']} MB',
+                    ]),
+                    _buildInfoSection('Base de données', [
+                      'Taille: ${info['database']['size_mb']} MB',
+                      'Connexions actives: ${info['database']['active_connections']}',
+                      'Connexions totales: ${info['database']['total_connections']}',
+                      'Version: ${info['database']['version']}',
+                    ]),
+                    _buildInfoSection('Redis', [
+                      'Statut: ${info['redis']['status']}',
+                      if (info['redis']['version'] != null)
+                        'Version: ${info['redis']['version']}',
+                    ]),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Future<void> _showDatabaseStats() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/database/stats'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final stats = data['data'];
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Statistiques base de données'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 500,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Taille des tables',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...(stats['table_sizes'] as List).take(10).map((table) => 
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text('${table['tablename']}: ${table['size']}',
+                            style: const TextStyle(fontSize: 12)),
+                      )),
+                    const Divider(height: 24),
+                    
+                    const Text('Nombre de lignes',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...(stats['row_counts'] as List).take(10).map((table) => 
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text('${table['tablename']}: ${table['row_count']} lignes',
+                            style: const TextStyle(fontSize: 12)),
+                      )),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Widget _buildInfoSection(String title, List<String> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        ...items.map((item) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text('• $item', style: const TextStyle(fontSize: 12)),
+            )),
+        const SizedBox(height: 16),
+      ],
+    );
   }
 }
