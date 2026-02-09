@@ -237,102 +237,99 @@
   <body>
     <div class="container">
       <h1>🚀 AWID Super Admin Panel v2</h1>
+    </div>
+  </body>
+</html>
 
-      <!-- Section de connexion -->
-      <div id="login-section" class="card">
-        <h2>Authentification</h2>
-        <form id="login-form">
-          <div class="form-group">
-            <label>Clé Super Admin</label>
-            <input
-              type="password"
-              id="admin-key"
-              required
-              placeholder="Entrez votre clé secrète"
-            />
-          </div>
-          <button type="submit" class="btn btn-success" style="width: 100%">
-            Se connecter
-          </button>
-          <p id="login-error" class="error-msg hidden"></p>
-        </form>
-      </div>
+<!-- Section de connexion -->
+<div id="login-section" class="card">
+  <h2>Authentification</h2>
+  <form id="login-form">
+    <div class="form-group">
+      <label>Clé Super Admin</label>
+      <input
+        type="password"
+        id="admin-key"
+        required
+        placeholder="Entrez votre clé secrète"
+      />
+    </div>
+    <button type="submit" class="btn btn-success" style="width: 100%">
+      Se connecter
+    </button>
+    <p id="login-error" class="error-msg hidden"></p>
+  </form>
+</div>
 
-      <!-- Contenu principal -->
-      <div id="main-content">
-        <!-- Onglets de navigation -->
-        <div class="tabs">
-          <button class="tab active" onclick="showTab('dashboard')">
-            📊 Dashboard
-          </button>
-          <button class="tab" onclick="showTab('orgs')">
-            🏢 Organisations
-          </button>
-          <button class="tab" onclick="showTab('sessions')">🔐 Sessions</button>
-          <button class="tab" onclick="showTab('security')">🛡️ Sécurité</button>
-          <button class="tab" onclick="showTab('logs')">📝 Logs</button>
-          <button class="tab" onclick="showTab('activity')">📈 Activité</button>
-          <button class="tab" onclick="showTab('alerts')">⚠️ Alertes</button>
-          <button class="tab" onclick="showTab('create')">➕ Créer Org</button>
-          <button
-            class="tab btn-danger"
-            onclick="logout()"
-            style="margin-left: auto"
-          >
-            🚪 Déconnexion
-          </button>
-        </div>
+<!-- Contenu principal -->
+<div id="main-content">
+  <!-- Onglets de navigation -->
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('dashboard')">
+      📊 Dashboard
+    </button>
+    <button class="tab" onclick="showTab('orgs')">🏢 Organisations</button>
+    <button class="tab" onclick="showTab('sessions')">🔐 Sessions</button>
+    <button class="tab" onclick="showTab('security')">🛡️ Sécurité</button>
+    <button class="tab" onclick="showTab('logs')">📝 Logs</button>
+    <button class="tab" onclick="showTab('activity')">📈 Activité</button>
+    <button class="tab" onclick="showTab('alerts')">⚠️ Alertes</button>
+    <button class="tab" onclick="showTab('monitoring')">📡 Monitoring</button>
+    <button class="tab" onclick="showTab('reports')">📄 Rapports</button>
+    <button class="tab" onclick="showTab('settings')">⚙️ Paramètres</button>
+    <button class="tab" onclick="showTab('create')">➕ Créer Org</button>
+    <button class="tab btn-danger" onclick="logout()" style="margin-left: auto">
+      🚪 Déconnexion
+    </button>
+  </div>
 
-        <!-- Onglet Dashboard -->
-        <div id="dashboard" class="card">
-          <h2>Statistiques Globales</h2>
-          <div id="stats-content" class="stats"></div>
-          <div style="margin-top: 20px">
-            <button class="btn btn-info" onclick="loadAdvancedStats()">
-              📊 Stats Avancées
-            </button>
-            <button class="btn btn-success" onclick="triggerBackup()">
-              💾 Backup
-            </button>
-            <button class="btn btn-warning" onclick="checkHealth()">
-              🏥 Santé Système
-            </button>
-          </div>
-        </div>
+  <!-- Onglet Dashboard -->
+  <div id="dashboard" class="card">
+    <h2>Statistiques Globales</h2>
+    <div id="stats-content" class="stats"></div>
+    <div style="margin-top: 20px">
+      <button class="btn btn-info" onclick="loadAdvancedStats()">
+        📊 Stats Avancées
+      </button>
+      <button class="btn btn-success" onclick="triggerBackup()">
+        💾 Backup
+      </button>
+      <button class="btn btn-warning" onclick="checkHealth()">
+        🏥 Santé Système
+      </button>
+    </div>
+  </div>
 
-        <!-- Onglet Organisations -->
-        <div id="orgs" class="card hidden">
-          <h2>Organisations</h2>
-          <div style="margin-bottom: 15px">
-            <button class="btn btn-info" onclick="loadOrgs()">
-              🔄 Actualiser
-            </button>
-            <button class="btn btn-warning" onclick="showArchivedOrgs()">
-              📦 Archivées
-            </button>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Nom</th>
-                <th>Type</th>
-                <th>Statut</th>
-                <th>Utilisateurs</th>
-                <th>Commandes</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="orgs-table"></tbody>
-          </table>
-        </div>
+  <!-- Onglet Organisations -->
+  <div id="orgs" class="card hidden">
+    <h2>Organisations</h2>
+    <div style="margin-bottom: 15px">
+      <button class="btn btn-info" onclick="loadOrgs()">🔄 Actualiser</button>
+      <button class="btn btn-warning" onclick="showArchivedOrgs()">
+        📦 Archivées
+      </button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Type</th>
+          <th>Statut</th>
+          <th>Utilisateurs</th>
+          <th>Commandes</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="orgs-table"></tbody>
+    </table>
+  </div>
+</div>
 
         <!-- Onglet Sessions -->
         <div id="sessions" class="card hidden">
           <h2>Sessions Actives</h2>
           <div style="margin-bottom: 15px">
-            <button class="btn btn-info" onclick="loadSessions()">
-              🔄 Actualiser
-            </button>
+            <button class="btn btn-info" onclick="loadSessions()">🔄 Actualiser</button>
           </div>
           <table>
             <thead>
@@ -353,15 +350,9 @@
         <div id="security" class="card hidden">
           <h2>Sécurité - Tentatives Échouées</h2>
           <div style="margin-bottom: 15px">
-            <button class="btn btn-info" onclick="loadFailedLogins()">
-              🔄 Actualiser
-            </button>
-            <button class="btn btn-warning" onclick="showBlockedIPs()">
-              🚫 IPs Bloquées
-            </button>
-            <button class="btn btn-danger" onclick="purgeFailedLogins()">
-              🗑️ Purger
-            </button>
+            <button class="btn btn-info" onclick="loadFailedLogins()">🔄 Actualiser</button>
+            <button class="btn btn-warning" onclick="showBlockedIPs()">🚫 IPs Bloquées</button>
+            <button class="btn btn-danger" onclick="purgeFailedLogins()">🗑️ Purger</button>
           </div>
           <div id="failed-logins-content"></div>
         </div>
@@ -370,12 +361,8 @@
         <div id="logs" class="card hidden">
           <h2>Logs d'Erreurs</h2>
           <div style="margin-bottom: 15px">
-            <button class="btn btn-info" onclick="loadLogs()">
-              🔄 Actualiser
-            </button>
-            <button class="btn btn-danger" onclick="purgeLogs()">
-              🗑️ Purger
-            </button>
+            <button class="btn btn-info" onclick="loadLogs()">🔄 Actualiser</button>
+            <button class="btn btn-danger" onclick="purgeLogs()">🗑️ Purger</button>
           </div>
           <div id="logs-content"></div>
         </div>
@@ -384,9 +371,7 @@
         <div id="activity" class="card hidden">
           <h2>Activité Récente</h2>
           <div style="margin-bottom: 15px">
-            <button class="btn btn-info" onclick="loadActivity()">
-              🔄 Actualiser
-            </button>
+            <button class="btn btn-info" onclick="loadActivity()">🔄 Actualiser</button>
           </div>
           <div id="activity-content"></div>
         </div>
@@ -395,11 +380,39 @@
         <div id="alerts" class="card hidden">
           <h2>Alertes Système</h2>
           <div style="margin-bottom: 15px">
-            <button class="btn btn-info" onclick="loadAlerts()">
-              🔄 Actualiser
-            </button>
+            <button class="btn btn-info" onclick="loadAlerts()">🔄 Actualiser</button>
           </div>
           <div id="alerts-content"></div>
+        </div>
+
+        <!-- Onglet Monitoring -->
+        <div id="monitoring" class="card hidden">
+          <h2>Monitoring Système</h2>
+          <div style="margin-bottom: 15px">
+            <button class="btn btn-info" onclick="loadMonitoring()">🔄 Actualiser</button>
+          </div>
+          <div id="monitoring-content"></div>
+        </div>
+
+        <!-- Onglet Rapports -->
+        <div id="reports" class="card hidden">
+          <h2>Rapports</h2>
+          <div style="margin-bottom: 15px">
+            <button class="btn btn-success" onclick="generateReport('summary')">📊 Rapport Résumé</button>
+            <button class="btn btn-info" onclick="generateReport('organizations')">🏢 Organisations</button>
+            <button class="btn btn-warning" onclick="generateReport('security')">🛡️ Sécurité</button>
+            <button class="btn btn-danger" onclick="generateReport('all')">📄 Rapport Complet</button>
+          </div>
+          <div id="reports-content"></div>
+        </div>
+
+        <!-- Onglet Paramètres -->
+        <div id="settings" class="card hidden">
+          <h2>Paramètres Système</h2>
+          <div style="margin-bottom: 15px">
+            <button class="btn btn-info" onclick="loadSettings()">🔄 Actualiser</button>
+          </div>
+          <div id="settings-content"></div>
         </div>
 
         <!-- Onglet Créer Organisation -->
@@ -420,12 +433,7 @@
             </div>
             <div class="form-group">
               <label>Mot de passe Admin (min 6) *</label>
-              <input
-                type="password"
-                id="admin-password"
-                required
-                minlength="6"
-              />
+              <input type="password" id="admin-password" required minlength="6" />
             </div>
             <div class="form-group">
               <label>Nom Admin *</label>
@@ -435,9 +443,7 @@
               <label>Téléphone Admin</label>
               <input type="text" id="admin-phone" />
             </div>
-            <button type="submit" class="btn btn-success">
-              ✅ Créer l'Organisation
-            </button>
+            <button type="submit" class="btn btn-success">✅ Créer l'Organisation</button>
           </form>
         </div>
       </div>
@@ -447,7 +453,6 @@
       const API = window.location.origin + "/api";
       let KEY = "";
 
-      // Headers pour les requêtes API
       function getHeaders() {
         return {
           "Content-Type": "application/json",
@@ -455,7 +460,6 @@
         };
       }
 
-      // Vérifier l'authentification au chargement
       function checkAuth() {
         const k = sessionStorage.getItem("superAdminKey");
         if (k) {
@@ -464,7 +468,6 @@
         }
       }
 
-      // Formulaire de connexion
       document.getElementById("login-form").onsubmit = async (e) => {
         e.preventDefault();
         const key = document.getElementById("admin-key").value;
@@ -487,13 +490,11 @@
             document.getElementById("login-error").classList.remove("hidden");
           }
         } catch (err) {
-          document.getElementById("login-error").textContent =
-            "Erreur de connexion";
+          document.getElementById("login-error").textContent = "Erreur de connexion";
           document.getElementById("login-error").classList.remove("hidden");
         }
       };
 
-      // Afficher le contenu principal
       function showMainContent() {
         document.getElementById("login-section").style.display = "none";
         document.getElementById("main-content").style.display = "block";
@@ -501,7 +502,6 @@
         loadOrgs();
       }
 
-      // Déconnexion
       function logout() {
         sessionStorage.removeItem("superAdminKey");
         KEY = "";
@@ -510,7 +510,6 @@
         location.reload();
       }
 
-      // Fonction générique pour les appels API
       async function fetchAPI(endpoint, options = {}) {
         try {
           const res = await fetch(API + endpoint, {
@@ -530,7 +529,6 @@
         }
       }
 
-      // Échapper le HTML
       function esc(t) {
         if (!t) return "";
         const d = document.createElement("div");
@@ -538,126 +536,117 @@
         return d.innerHTML;
       }
 
-      // Formater la date
       function formatDate(dateStr) {
         if (!dateStr) return "N/A";
         const date = new Date(dateStr);
         return date.toLocaleString("fr-FR");
       }
 
-      // Charger les statistiques
       async function loadStats() {
         const data = await fetchAPI("/super-admin/stats");
         if (data.success) {
           const stats = data.data;
           document.getElementById("stats-content").innerHTML = `
-                    <div class="stat-box">
-                        <h3>${stats.totalOrganizations}</h3>
-                        <p>Organisations</p>
-                    </div>
-                    <div class="stat-box">
-                        <h3>${stats.activeOrganizations}</h3>
-                        <p>Actives</p>
-                    </div>
-                    <div class="stat-box">
-                        <h3>${stats.totalUsers}</h3>
-                        <p>Utilisateurs</p>
-                    </div>
-                    <div class="stat-box">
-                        <h3>${stats.totalOrders}</h3>
-                        <p>Commandes</p>
-                    </div>
-                    <div class="stat-box">
-                        <h3>${stats.ordersToday}</h3>
-                        <p>Commandes Aujourd'hui</p>
-                    </div>
-                    <div class="stat-box">
-                        <h3>${stats.revenueToday} DA</h3>
-                        <p>CA Aujourd'hui</p>
-                    </div>
-                    <div class="stat-box">
-                        <h3>${stats.activeUsers24h}</h3>
-                        <p>Utilisateurs Actifs (24h)</p>
-                    </div>
-                `;
+            <div class="stat-box">
+              <h3>${stats.totalOrganizations}</h3>
+              <p>Organisations</p>
+            </div>
+            <div class="stat-box">
+              <h3>${stats.activeOrganizations}</h3>
+              <p>Actives</p>
+            </div>
+            <div class="stat-box">
+              <h3>${stats.totalUsers}</h3>
+              <p>Utilisateurs</p>
+            </div>
+            <div class="stat-box">
+              <h3>${stats.totalOrders}</h3>
+              <p>Commandes</p>
+            </div>
+            <div class="stat-box">
+              <h3>${stats.ordersToday}</h3>
+              <p>Commandes Aujourd'hui</p>
+            </div>
+            <div class="stat-box">
+              <h3>${stats.revenueToday} DA</h3>
+              <p>Chiffre d'affaires Aujourd'hui</p>
+            </div>
+            <div class="stat-box">
+              <h3>${stats.activeUsers24h}</h3>
+              <p>Utilisateurs Actifs (24h)</p>
+            </div>
+          `;
         }
       }
 
-      // Charger les organisations
       async function loadOrgs() {
         const data = await fetchAPI("/super-admin/organizations");
         if (data.success) {
           document.getElementById("orgs-table").innerHTML = data.data
             .map(
               (o) => `
-                    <tr>
-                        <td>${esc(o.name)}</td>
-                        <td>${esc(o.type)}</td>
-                        <td><span class="badge ${o.active ? "badge-success" : "badge-danger"}">${o.active ? "Active" : "Inactive"}</span></td>
-                        <td>-</td>
-                        <td>-</td>
-                        <td>
-                            <button class="btn btn-info" onclick="viewOrgDetails('${o.id}')">👁️ Voir</button>
-                            <button class="btn btn-warning" onclick="toggleOrg('${o.id}', ${!o.active})">${o.active ? "❌ Désactiver" : "✅ Activer"}</button>
-                            <button class="btn btn-danger" onclick="deleteOrg('${o.id}', '${esc(o.name)}')">🗑️ Supprimer</button>
-                        </td>
-                    </tr>
-                `,
+                <tr>
+                  <td>${esc(o.name)}</td>
+                  <td>${esc(o.type)}</td>
+                  <td><span class="badge ${o.active ? "badge-success" : "badge-danger"}">${o.active ? "Active" : "Inactive"}</span></td>
+                  <td>-</td>
+                  <td>-</td>
+                  <td>
+                    <button class="btn btn-info" onclick="viewOrgDetails('${o.id}')">👁️ Voir</button>
+                    <button class="btn btn-warning" onclick="toggleOrg('${o.id}', ${!o.active})">${o.active ? "❌ Désactiver" : "✅ Activer"}</button>
+                    <button class="btn btn-danger" onclick="deleteOrg('${o.id}', '${esc(o.name)}')">🗑️ Supprimer</button>
+                  </td>
+                </tr>
+              `,
             )
             .join("");
         }
       }
 
-      // Charger les sessions
       async function loadSessions() {
         const data = await fetchAPI("/super-admin/sessions");
         if (data.success) {
           document.getElementById("sessions-table").innerHTML = data.data
             .map(
               (s) => `
-                    <tr>
-                        <td>${esc(s.name)}</td>
-                        <td>${esc(s.email)}</td>
-                        <td><span class="badge badge-info">${esc(s.role)}</span></td>
-                        <td>${esc(s.organization_name)}</td>
-                        <td>${formatDate(s.created_at)}</td>
-                        <td>
-                            <button class="btn btn-danger" onclick="revokeSession('${s.id}')">🚫 Révoquer</button>
-                        </td>
-                    </tr>
-                `,
+                <tr>
+                  <td>${esc(s.name)}</td>
+                  <td>${esc(s.email)}</td>
+                  <td><span class="badge badge-info">${esc(s.role)}</span></td>
+                  <td>${esc(s.organization_name)}</td>
+                  <td>${formatDate(s.created_at)}</td>
+                  <td>
+                    <button class="btn btn-danger" onclick="revokeSession('${s.id}')">🚫 Révoquer</button>
+                  </td>
+                </tr>
+              `,
             )
             .join("");
         }
       }
 
-      // Charger les tentatives échouées
       async function loadFailedLogins() {
-        const data = await fetchAPI(
-          "/super-admin/security/failed-logins/detailed?hours=24",
-        );
+        const data = await fetchAPI("/super-admin/security/failed-logins/detailed?hours=24");
         if (data.success) {
           if (data.data.length === 0) {
             document.getElementById("failed-logins-content").innerHTML =
               '<p class="success-msg">✅ Aucune tentative échouée récente</p>';
           } else {
-            document.getElementById("failed-logins-content").innerHTML =
-              data.data
-                .map(
-                  (login) => `
-                        <div class="alert alert-danger">
-                            <strong>📧 ${esc(login.email)}</strong> - ${login.attempts} tentatives<br>
-                            <small>IP: ${esc(login.ip)} | Dernière: ${formatDate(login.last_attempt)}</small><br>
-                            <button class="btn btn-danger" onclick="blockIP('${login.ip}', '${esc(login.email)}')">🚫 Bloquer IP</button>
-                        </div>
-                    `,
-                )
-                .join("");
+            document.getElementById("failed-logins-content").innerHTML = data.data
+              .map(
+                (login) => `
+                  <div class="alert alert-danger">
+                    <strong>📧 ${esc(login.email)}</strong> - ${login.attempts} tentatives<br>
+                    <small>IP: ${esc(login.ip)} | Dernière: ${formatDate(login.last_attempt)}</small><br>
+                    <button class="btn btn-danger" onclick="blockIP('${login.ip}', '${esc(login.email)}')">🚫 Bloquer IP</button>
+                  </div>
+                `,
+              )
+              .join("");
           }
         }
       }
 
-      // Charger les logs
       async function loadLogs() {
         const data = await fetchAPI("/super-admin/logs/detailed?limit=20");
         if (data.success) {
@@ -668,35 +657,33 @@
             document.getElementById("logs-content").innerHTML = data.data
               .map(
                 (log) => `
-                        <div class="alert alert-warning">
-                            <strong>${esc(log.action)}</strong><br>
-                            <small>Organisation: ${esc(log.organization_name || "N/A")} | ${formatDate(log.created_at)}</small>
-                        </div>
-                    `,
+                  <div class="alert alert-warning">
+                    <strong>${esc(log.action)}</strong><br>
+                    <small>Organisation: ${esc(log.organization_name || "N/A")} | ${formatDate(log.created_at)}</small>
+                  </div>
+                `,
               )
               .join("");
           }
         }
       }
 
-      // Charger l'activité
       async function loadActivity() {
         const data = await fetchAPI("/super-admin/activity/detailed?limit=20");
         if (data.success) {
           document.getElementById("activity-content").innerHTML = data.data
             .map(
               (act) => `
-                    <div class="alert alert-info">
-                        <strong>${esc(act.action)}</strong><br>
-                        <small>${esc(act.user_name || "Système")} - ${esc(act.organization_name || "N/A")} | ${formatDate(act.created_at)}</small>
-                    </div>
-                `,
+                <div class="alert alert-info">
+                  <strong>${esc(act.action)}</strong><br>
+                  <small>${esc(act.user_name || "Système")} - ${esc(act.organization_name || "N/A")} | ${formatDate(act.created_at)}</small>
+                </div>
+              `,
             )
             .join("");
         }
       }
 
-      // Charger les alertes
       async function loadAlerts() {
         const data = await fetchAPI("/super-admin/alerts");
         if (data.success) {
@@ -707,18 +694,99 @@
             document.getElementById("alerts-content").innerHTML = data.data
               .map(
                 (alert) => `
-                        <div class="alert alert-${alert.severity === "high" ? "danger" : alert.severity === "medium" ? "warning" : "info"}">
-                            <strong>${alert.type.toUpperCase()}</strong>: ${esc(alert.message)}<br>
-                            <small>${formatDate(alert.timestamp)}</small>
-                        </div>
-                    `,
+                  <div class="alert alert-${alert.severity === "high" ? "danger" : alert.severity === "medium" ? "warning" : "info"}">
+                    <strong>${alert.type.toUpperCase()}</strong>: ${esc(alert.message)}<br>
+                    <small>${formatDate(alert.timestamp)}</small>
+                  </div>
+                `,
               )
               .join("");
           }
         }
       }
 
-      // Actions sur les organisations
+      async function loadMonitoring() {
+        const data = await fetchAPI("/super-admin/health");
+        if (data.success) {
+          const health = data.data;
+          let html = `<h3>État: <span class="badge ${health.status === 'healthy' ? 'badge-success' : health.status === 'degraded' ? 'badge-warning' : 'badge-danger'}">${health.status.toUpperCase()}</span></h3>`;
+          html += '<div class="stats">';
+          
+          for (const [key, value] of Object.entries(health.checks)) {
+            html += `
+              <div class="stat-box">
+                <h3>${value.status === 'ok' ? '✅' : value.status === 'warning' ? '⚠️' : '❌'}</h3>
+                <p>${key.replace(/_/g, ' ').toUpperCase()}</p>
+                ${value.count !== undefined ? `<small>${value.count}</small>` : ''}
+                ${value.message ? `<small>${value.message}</small>` : ''}
+              </div>
+            `;
+          }
+          
+          html += '</div>';
+          document.getElementById("monitoring-content").innerHTML = html;
+        }
+      }
+
+      async function generateReport(type) {
+        document.getElementById("reports-content").innerHTML = '<p class="loading">⏳ Génération du rapport...</p>';
+        
+        const data = await fetchAPI(`/super-admin/reports/generate?type=${type}&days=30`);
+        if (data.success) {
+          const report = data.data;
+          let html = `<h3>Rapport ${type.toUpperCase()} - ${new Date(report.generated_at).toLocaleString('fr-FR')}</h3>`;
+          
+          if (report.global_stats) {
+            html += '<div class="card"><h4>Statistiques Globales</h4>';
+            html += `<p>Organisations: ${report.global_stats.total_organizations}</p>`;
+            html += `<p>Utilisateurs: ${report.global_stats.total_users}</p>`;
+            html += `<p>Commandes: ${report.global_stats.total_orders}</p>`;
+            html += `<p>Chiffre d'affaires: ${report.global_stats.total_revenue} DA</p>`;
+            html += '</div>';
+          }
+          
+          if (report.organizations_performance) {
+            html += '<div class="card"><h4>Performance des Organisations</h4>';
+            html += '<table><thead><tr><th>Nom</th><th>Type</th><th>Commandes</th><th>CA</th></tr></thead><tbody>';
+            report.organizations_performance.forEach(org => {
+              html += `<tr><td>${esc(org.name)}</td><td>${esc(org.type)}</td><td>${org.orders_count}</td><td>${org.revenue} DA</td></tr>`;
+            });
+            html += '</tbody></table></div>';
+          }
+          
+          if (report.security_incidents) {
+            html += '<div class="card"><h4>Incidents de Sécurité</h4>';
+            html += `<p>Tentatives échouées: ${report.security_incidents.failed_logins}</p>`;
+            html += `<p>IPs uniques: ${report.security_incidents.unique_ips}</p>`;
+            html += `<p>Emails uniques: ${report.security_incidents.unique_emails}</p>`;
+            html += '</div>';
+          }
+          
+          document.getElementById("reports-content").innerHTML = html;
+        }
+      }
+
+      async function loadSettings() {
+        const data = await fetchAPI("/super-admin/settings");
+        if (data.success) {
+          let html = '<table><thead><tr><th>Catégorie</th><th>Clé</th><th>Valeur</th><th>Description</th></tr></thead><tbody>';
+          
+          data.data.forEach(setting => {
+            html += `
+              <tr>
+                <td>${esc(setting.category)}</td>
+                <td>${esc(setting.key)}</td>
+                <td>${JSON.stringify(setting.value)}</td>
+                <td>${esc(setting.description || 'N/A')}</td>
+              </tr>
+            `;
+          });
+          
+          html += '</tbody></table>';
+          document.getElementById("settings-content").innerHTML = html;
+        }
+      }
+
       async function toggleOrg(id, active) {
         await fetchAPI(`/super-admin/organizations/${id}/status`, {
           method: "PATCH",
@@ -739,10 +807,23 @@
       }
 
       async function viewOrgDetails(id) {
-        alert("Fonctionnalité à venir: Détails de l'organisation");
+        const data = await fetchAPI(`/super-admin/organizations/${id}/details`);
+        if (data.success) {
+          const org = data.data;
+          let html = `<h3>${esc(org.general.name)}</h3>`;
+          html += `<p>Type: ${esc(org.general.type)} | Statut: ${org.general.active ? 'Active' : 'Inactive'}</p>`;
+          html += `<p>Créée le: ${formatDate(org.general.created_at)}</p>`;
+          html += '<div class="stats">';
+          html += `<div class="stat-box"><h3>${org.stats.total_users}</h3><p>Utilisateurs</p></div>`;
+          html += `<div class="stat-box"><h3>${org.stats.total_orders}</h3><p>Commandes</p></div>`;
+          html += `<div class="stat-box"><h3>${org.stats.total_revenue} DA</h3><p>CA Total</p></div>`;
+          html += `<div class="stat-box"><h3>${org.stats.revenue_today} DA</h3><p>CA Aujourd'hui</p></div>`;
+          html += '</div>';
+          
+          alert(html.replace(/<[^>]*>/g, '\n'));
+        }
       }
 
-      // Actions sur les sessions
       async function revokeSession(id) {
         if (confirm("Révoquer cette session ?")) {
           await fetchAPI(`/super-admin/sessions/${id}`, { method: "DELETE" });
@@ -750,7 +831,6 @@
         }
       }
 
-      // Actions de sécurité
       async function blockIP(ip, email) {
         if (confirm(`Bloquer l'IP ${ip} (${email}) pour 24h ?`)) {
           await fetchAPI("/super-admin/security/block-ip", {
@@ -789,7 +869,6 @@
         }
       }
 
-      // Actions système
       async function purgeLogs() {
         if (confirm("Supprimer les logs de plus de 90 jours ?")) {
           await fetchAPI("/super-admin/logs/purge", {
@@ -820,14 +899,43 @@
       }
 
       async function loadAdvancedStats() {
-        alert("Fonctionnalité à venir: Statistiques avancées avec graphiques");
+        const data = await fetchAPI("/super-admin/stats/advanced?days=30");
+        if (data.success) {
+          const stats = data.data;
+          let html = '<h3>Statistiques Avancées (30 derniers jours)</h3>';
+          
+          html += `<div class="card"><h4>Taux de croissance: ${stats.growth_rate}%</h4></div>`;
+          
+          html += '<div class="card"><h4>Top 10 Organisations par CA</h4><table><thead><tr><th>Nom</th><th>Commandes</th><th>CA</th></tr></thead><tbody>';
+          stats.top_orgs_by_revenue.forEach(org => {
+            html += `<tr><td>${esc(org.name)}</td><td>${org.orders_count}</td><td>${org.total_revenue} DA</td></tr>`;
+          });
+          html += '</tbody></table></div>';
+          
+          html += '<div class="card"><h4>Répartition par Rôle</h4><table><thead><tr><th>Rôle</th><th>Nombre</th></tr></thead><tbody>';
+          stats.users_by_role.forEach(role => {
+            html += `<tr><td>${esc(role.role)}</td><td>${role.count}</td></tr>`;
+          });
+          html += '</tbody></table></div>';
+          
+          alert(html.replace(/<[^>]*>/g, '\n'));
+        }
       }
 
       async function showArchivedOrgs() {
-        alert("Fonctionnalité à venir: Organisations archivées");
+        const data = await fetchAPI("/super-admin/organizations/archived");
+        if (data.success) {
+          if (data.data.length === 0) {
+            alert("Aucune organisation archivée");
+          } else {
+            const list = data.data
+              .map((org) => `${org.name} (${org.type}) - ${org.users_count} utilisateurs`)
+              .join("\n");
+            alert("Organisations archivées:\n\n" + list);
+          }
+        }
       }
 
-      // Formulaire de création d'organisation
       document.getElementById("create-form").onsubmit = async (e) => {
         e.preventDefault();
 
@@ -856,25 +964,19 @@
         }
       };
 
-      // Gestion des onglets
       function showTab(tabName) {
-        // Cacher tous les onglets
         document
           .querySelectorAll("#main-content > .card")
           .forEach((c) => c.classList.add("hidden"));
 
-        // Désactiver tous les boutons d'onglet
         document
           .querySelectorAll(".tab")
           .forEach((t) => t.classList.remove("active"));
 
-        // Afficher l'onglet sélectionné
         document.getElementById(tabName).classList.remove("hidden");
 
-        // Activer le bouton d'onglet
         event.target.classList.add("active");
 
-        // Charger les données si nécessaire
         switch (tabName) {
           case "sessions":
             loadSessions();
@@ -891,10 +993,18 @@
           case "alerts":
             loadAlerts();
             break;
+          case "monitoring":
+            loadMonitoring();
+            break;
+          case "reports":
+            document.getElementById("reports-content").innerHTML = '<p>Sélectionnez un type de rapport ci-dessus</p>';
+            break;
+          case "settings":
+            loadSettings();
+            break;
         }
       }
 
-      // Initialisation
       checkAuth();
     </script>
   </body>
