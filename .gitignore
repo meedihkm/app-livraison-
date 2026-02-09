@@ -236,6 +236,7 @@ freezed_files.txt
 /index.js
 setup_env.ps1
 app livraison.code-workspace
+*.code-workspace
 
 # Ne pas ignorer api-v2/index.js
 !api-v2/index.js
