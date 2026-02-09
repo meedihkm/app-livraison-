@@ -4384,3 +4384,575 @@ router.get("/database/stats", authenticateSuperAdmin, async (req, res) => {
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
+
+// ============================================
+// PHASE 7 - EXPORTS PDF ET AMÉLIORATIONS
+// ============================================
+
+// GET /api/super-admin/export/organizations-pdf
+// Export PDF de toutes les organisations
+router.get(
+  "/export/organizations-pdf",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const orgs = await pool.query(`
+      SELECT 
+        o.id,
+        o.name,
+        o.type,
+        o.active,
+        o.created_at,
+        COUNT(DISTINCT u.id) as users_count,
+        COUNT(DISTINCT ord.id) as orders_count,
+        COALESCE(SUM(ord.total), 0) as total_revenue
+      FROM organizations o
+      LEFT JOIN users u ON o.id = u.organization_id
+      LEFT JOIN orders ord ON o.id = ord.organization_id
+      GROUP BY o.id, o.name, o.type, o.active, o.created_at
+      ORDER BY o.created_at DESC
+    `);
+
+      // Générer un HTML simple pour PDF
+      const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Rapport Organisations</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          h1 { color: #333; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #4CAF50; color: white; }
+          tr:nth-child(even) { background-color: #f2f2f2; }
+          .footer { margin-top: 30px; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <h1>Rapport des Organisations</h1>
+        <p>Généré le: ${new Date().toLocaleString("fr-FR")}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Type</th>
+              <th>Statut</th>
+              <th>Utilisateurs</th>
+              <th>Commandes</th>
+              <th>CA Total</th>
+              <th>Date création</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${orgs.rows
+              .map(
+                (org) => `
+              <tr>
+                <td>${org.name}</td>
+                <td>${org.type}</td>
+                <td>${org.active ? "Active" : "Inactive"}</td>
+                <td>${org.users_count}</td>
+                <td>${org.orders_count}</td>
+                <td>${org.total_revenue} DA</td>
+                <td>${new Date(org.created_at).toLocaleDateString("fr-FR")}</td>
+              </tr>
+            `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+        <div class="footer">
+          <p>Total organisations: ${orgs.rows.length}</p>
+          <p>Rapport généré par le système Super Admin</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="organisations_${new Date().toISOString().split("T")[0]}.html"`,
+      );
+      res.send(html);
+    } catch (error) {
+      logger.error("Export organizations PDF error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// GET /api/super-admin/dashboard/charts
+// Données pour les graphiques du dashboard
+router.get("/dashboard/charts", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { days = 7 } = req.query;
+
+    // Évolution des commandes (7 derniers jours)
+    const ordersEvolution = await pool.query(
+      `SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as count,
+        COALESCE(SUM(total), 0) as revenue
+      FROM orders
+      WHERE created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC`,
+    );
+
+    // Répartition des utilisateurs par rôle
+    const usersByRole = await pool.query(`
+      SELECT 
+        role,
+        COUNT(*) as count
+      FROM users
+      WHERE organization_id IS NOT NULL
+      GROUP BY role
+      ORDER BY count DESC
+    `);
+
+    // Commandes par statut (7 derniers jours)
+    const ordersByStatus = await pool.query(
+      `SELECT 
+        status,
+        COUNT(*) as count
+      FROM orders
+      WHERE created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY status
+      ORDER BY count DESC`,
+    );
+
+    // Top 5 organisations par CA (7 derniers jours)
+    const topOrgs = await pool.query(
+      `SELECT 
+        o.name,
+        COUNT(ord.id) as orders_count,
+        COALESCE(SUM(ord.total), 0) as revenue
+      FROM organizations o
+      LEFT JOIN orders ord ON o.id = ord.organization_id
+      WHERE ord.created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY o.id, o.name
+      ORDER BY revenue DESC
+      LIMIT 5`,
+    );
+
+    res.json({
+      success: true,
+      data: {
+        orders_evolution: ordersEvolution.rows,
+        users_by_role: usersByRole.rows,
+        orders_by_status: ordersByStatus.rows,
+        top_organizations: topOrgs.rows,
+      },
+    });
+  } catch (error) {
+    logger.error("Dashboard charts error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/quick-stats
+// Statistiques rapides pour le dashboard
+router.get("/quick-stats", authenticateSuperAdmin, async (req, res) => {
+  try {
+    // Stats en temps réel
+    const stats = await pool.query(`
+      SELECT 
+        (SELECT COUNT(*) FROM organizations WHERE active = true) as active_orgs,
+        (SELECT COUNT(*) FROM users WHERE active = true) as active_users,
+        (SELECT COUNT(*) FROM orders WHERE DATE(created_at) = CURRENT_DATE) as orders_today,
+        (SELECT COALESCE(SUM(total), 0) FROM orders WHERE DATE(created_at) = CURRENT_DATE) as revenue_today,
+        (SELECT COUNT(*) FROM refresh_tokens WHERE expires_at > NOW()) as active_sessions,
+        (SELECT COUNT(*) FROM audit_logs WHERE (action LIKE '%ERROR%' OR action LIKE '%FAILED%') AND created_at > NOW() - INTERVAL '1 hour') as errors_last_hour
+    `);
+
+    res.json({
+      success: true,
+      data: stats.rows[0],
+    });
+  } catch (error) {
+    logger.error("Quick stats error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// POST /api/super-admin/bulk-actions
+// Actions en masse sur plusieurs organisations
+router.post("/bulk-actions", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { action, organization_ids } = req.body;
+
+    if (!action || !organization_ids || !Array.isArray(organization_ids)) {
+      return res.status(400).json({ error: "Paramètres invalides" });
+    }
+
+    let result;
+    switch (action) {
+      case "activate":
+        result = await pool.query(
+          `UPDATE organizations SET active = true WHERE id = ANY($1::uuid[])`,
+          [organization_ids],
+        );
+        break;
+
+      case "deactivate":
+        result = await pool.query(
+          `UPDATE organizations SET active = false WHERE id = ANY($1::uuid[])`,
+          [organization_ids],
+        );
+        // Désactiver aussi les utilisateurs
+        await pool.query(
+          `UPDATE users SET active = false WHERE organization_id = ANY($1::uuid[])`,
+          [organization_ids],
+        );
+        break;
+
+      case "delete":
+        // Supprimer en cascade (attention!)
+        for (const orgId of organization_ids) {
+          await pool.query("DELETE FROM organizations WHERE id = $1", [orgId]);
+        }
+        result = { rowCount: organization_ids.length };
+        break;
+
+      default:
+        return res.status(400).json({ error: "Action non reconnue" });
+    }
+
+    await logAudit(
+      "BULK_ACTION",
+      req.user?.id,
+      null,
+      { action, organization_ids, affected: result.rowCount },
+      req,
+    );
+
+    res.json({
+      success: true,
+      message: `Action ${action} effectuée sur ${result.rowCount} organisation(s)`,
+      affected: result.rowCount,
+    });
+  } catch (error) {
+    logger.error("Bulk actions error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ============================================
+// PHASE 7 - GRAPHIQUES ET VISUALISATIONS
+// ============================================
+
+// GET /api/super-admin/charts/dashboard
+// Données pour les graphiques du dashboard
+router.get("/charts/dashboard", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { days = 7 } = req.query;
+
+    // Évolution des commandes (7 derniers jours)
+    const ordersEvolution = await pool.query(
+      `SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as count
+      FROM orders
+      WHERE created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC`,
+    );
+
+    // Évolution du chiffre d'affaires (7 derniers jours)
+    const revenueEvolution = await pool.query(
+      `SELECT 
+        DATE(created_at) as date,
+        COALESCE(SUM(total), 0) as amount
+      FROM orders
+      WHERE created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC`,
+    );
+
+    // Répartition des utilisateurs par rôle (camembert)
+    const usersByRole = await pool.query(`
+      SELECT 
+        role,
+        COUNT(*) as count
+      FROM users
+      WHERE organization_id IS NOT NULL
+      GROUP BY role
+      ORDER BY count DESC
+    `);
+
+    // Répartition des commandes par statut
+    const ordersByStatus = await pool.query(`
+      SELECT 
+        status,
+        COUNT(*) as count
+      FROM orders
+      WHERE created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY status
+      ORDER BY count DESC
+    `);
+
+    // Activité par heure (dernières 24h)
+    const activityByHour = await pool.query(`
+      SELECT 
+        EXTRACT(HOUR FROM created_at) as hour,
+        COUNT(*) as count
+      FROM audit_logs
+      WHERE created_at > NOW() - INTERVAL '24 hours'
+      GROUP BY hour
+      ORDER BY hour
+    `);
+
+    // Top 5 organisations par CA
+    const topOrgsByRevenue = await pool.query(
+      `SELECT 
+        o.id,
+        o.name,
+        COALESCE(SUM(ord.total), 0) as revenue
+      FROM organizations o
+      LEFT JOIN orders ord ON o.id = ord.organization_id
+      WHERE ord.created_at > NOW() - INTERVAL '${days} days'
+      GROUP BY o.id, o.name
+      ORDER BY revenue DESC
+      LIMIT 5`,
+    );
+
+    res.json({
+      success: true,
+      data: {
+        period_days: days,
+        orders_evolution: ordersEvolution.rows,
+        revenue_evolution: revenueEvolution.rows,
+        users_by_role: usersByRole.rows,
+        orders_by_status: ordersByStatus.rows,
+        activity_by_hour: activityByHour.rows,
+        top_orgs_by_revenue: topOrgsByRevenue.rows,
+      },
+    });
+  } catch (error) {
+    logger.error("Dashboard charts error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// GET /api/super-admin/export/pdf/organization/:id
+// Export PDF d'une organisation
+router.get(
+  "/export/pdf/organization/:id",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      // Récupérer toutes les données de l'organisation
+      const orgData = await pool.query(
+        `SELECT 
+          o.*,
+          COUNT(DISTINCT u.id) as users_count,
+          COUNT(DISTINCT ord.id) as orders_count,
+          COALESCE(SUM(ord.total), 0) as total_revenue
+        FROM organizations o
+        LEFT JOIN users u ON o.id = u.organization_id
+        LEFT JOIN orders ord ON o.id = ord.organization_id
+        WHERE o.id = $1
+        GROUP BY o.id`,
+        [id],
+      );
+
+      if (orgData.rows.length === 0) {
+        return res.status(404).json({ error: "Organisation non trouvée" });
+      }
+
+      // Pour l'instant, retourner les données JSON
+      // TODO: Générer un vrai PDF avec une bibliothèque comme pdfkit
+      res.json({
+        success: true,
+        message: "Export PDF disponible prochainement",
+        data: orgData.rows[0],
+      });
+    } catch (error) {
+      logger.error("Export PDF error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// GET /api/super-admin/sessions/detailed
+// Sessions avec plus de détails (IP, appareil, etc.)
+router.get("/sessions/detailed", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const { organization_id, role } = req.query;
+
+    let whereConditions = ["rt.expires_at > NOW()"];
+    const params = [];
+    let paramIndex = 1;
+
+    if (organization_id) {
+      whereConditions.push(`u.organization_id = $${paramIndex}`);
+      params.push(organization_id);
+      paramIndex++;
+    }
+
+    if (role) {
+      whereConditions.push(`u.role = $${paramIndex}`);
+      params.push(role);
+      paramIndex++;
+    }
+
+    const whereClause = whereConditions.join(" AND ");
+
+    const sessions = await pool.query(
+      `SELECT 
+        rt.id,
+        rt.user_id,
+        rt.created_at,
+        rt.expires_at,
+        EXTRACT(EPOCH FROM (rt.expires_at - NOW())) / 3600 as hours_remaining,
+        u.email,
+        u.name,
+        u.role,
+        u.phone,
+        o.name as organization_name,
+        o.id as organization_id,
+        al.ip_address,
+        al.user_agent
+      FROM refresh_tokens rt
+      JOIN users u ON rt.user_id = u.id
+      LEFT JOIN organizations o ON u.organization_id = o.id
+      LEFT JOIN LATERAL (
+        SELECT ip_address, user_agent
+        FROM audit_logs
+        WHERE user_id = rt.user_id
+          AND action = 'LOGIN_SUCCESS'
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) al ON true
+      WHERE ${whereClause}
+      ORDER BY rt.created_at DESC`,
+      params,
+    );
+
+    // Statistiques
+    const stats = await pool.query(
+      `SELECT 
+        COUNT(*) as total_sessions,
+        COUNT(DISTINCT u.organization_id) as organizations_count,
+        COUNT(DISTINCT CASE WHEN u.role = 'customer' THEN rt.id END) as customer_sessions,
+        COUNT(DISTINCT CASE WHEN u.role = 'deliverer' THEN rt.id END) as deliverer_sessions,
+        COUNT(DISTINCT CASE WHEN u.role = 'admin' THEN rt.id END) as admin_sessions
+      FROM refresh_tokens rt
+      JOIN users u ON rt.user_id = u.id
+      WHERE rt.expires_at > NOW()`,
+    );
+
+    res.json({
+      success: true,
+      data: {
+        sessions: sessions.rows,
+        stats: stats.rows[0],
+      },
+    });
+  } catch (error) {
+    logger.error("Detailed sessions error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// DELETE /api/super-admin/sessions/user/:userId
+// Révoquer toutes les sessions d'un utilisateur
+router.delete(
+  "/sessions/user/:userId",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      const result = await pool.query(
+        "DELETE FROM refresh_tokens WHERE user_id = $1 RETURNING id",
+        [userId],
+      );
+
+      await logAudit(
+        "USER_SESSIONS_REVOKED",
+        req.user?.id,
+        null,
+        { user_id: userId, sessions_count: result.rowCount },
+        req,
+      );
+
+      res.json({
+        success: true,
+        message: `${result.rowCount} session(s) révoquée(s)`,
+        revoked_count: result.rowCount,
+      });
+    } catch (error) {
+      logger.error("Revoke user sessions error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
+// DELETE /api/super-admin/sessions/organization/:orgId
+// Révoquer toutes les sessions d'une organisation
+router.delete(
+  "/sessions/organization/:orgId",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { orgId } = req.params;
+
+      const result = await pool.query(
+        `DELETE FROM refresh_tokens 
+         WHERE user_id IN (SELECT id FROM users WHERE organization_id = $1)
+         RETURNING id`,
+        [orgId],
+      );
+
+      await logAudit(
+        "ORG_SESSIONS_REVOKED",
+        req.user?.id,
+        orgId,
+        { sessions_count: result.rowCount },
+        req,
+      );
+
+      res.json({
+        success: true,
+        message: `${result.rowCount} session(s) révoquée(s)`,
+        revoked_count: result.rowCount,
+      });
+    } catch (error) {
+      logger.error("Revoke org sessions error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);

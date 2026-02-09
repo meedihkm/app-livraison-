@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:fl_chart/fl_chart.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/storage/secure_storage.dart';
 import 'organization_detail_page.dart';
@@ -264,14 +265,31 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Bouton statistiques avancées
-          ElevatedButton.icon(
-            onPressed: _showAdvancedStats,
-            icon: const Icon(Icons.analytics),
-            label: const Text('Statistiques avancées'),
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 48),
-            ),
+          // Boutons d'action
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _showAdvancedStats,
+                  icon: const Icon(Icons.analytics),
+                  label: const Text('Stats avancées'),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _showDashboardCharts,
+                  icon: const Icon(Icons.bar_chart),
+                  label: const Text('Graphiques'),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           
@@ -286,20 +304,28 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
           _buildStatCard('Chiffre d\'affaires', '${_stats!['revenueToday']} DA', Icons.attach_money, Colors.teal),
           _buildStatCard('Utilisateurs actifs (24h)', _stats!['activeUsers24h'].toString(), Icons.person_outline, Colors.cyan),
           const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: _triggerBackup,
-            icon: const Icon(Icons.backup),
-            label: const Text('Créer un backup'),
-          ),
-          const SizedBox(height: 8),
-          ElevatedButton.icon(
-            onPressed: _checkSystemHealth,
-            icon: const Icon(Icons.health_and_safety),
-            label: const Text('Santé du système'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _triggerBackup,
+                  icon: const Icon(Icons.backup),
+                  label: const Text('Backup'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _checkSystemHealth,
+                  icon: const Icon(Icons.health_and_safety),
+                  label: const Text('Santé'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -2167,6 +2193,273 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
         SnackBar(content: Text('Erreur: $e')),
       );
     }
+  }
+
+  // ============================================
+  // PHASE 7 - GRAPHIQUES VISUELS
+  // ============================================
+
+  Future<void> _showDashboardCharts() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/super-admin/charts/dashboard?days=7'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final charts = data['data'];
+        
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Graphiques du dashboard (7 jours)'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 600,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Évolution des commandes
+                    Text('Évolution des commandes',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 200,
+                      child: _buildLineChart(
+                        charts['orders_evolution'] as List,
+                        'Commandes',
+                        Colors.blue,
+                      ),
+                    ),
+                    const Divider(height: 24),
+                    
+                    // Évolution du chiffre d'affaires
+                    Text('Évolution du chiffre d\'affaires',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 200,
+                      child: _buildLineChart(
+                        charts['revenue_evolution'] as List,
+                        'Chiffre d\'affaires (DA)',
+                        Colors.green,
+                      ),
+                    ),
+                    const Divider(height: 24),
+                    
+                    // Répartition des utilisateurs par rôle
+                    Text('Utilisateurs par rôle',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 200,
+                      child: _buildPieChart(
+                        charts['users_by_role'] as List,
+                        'role',
+                        'count',
+                      ),
+                    ),
+                    const Divider(height: 24),
+                    
+                    // Répartition des commandes par statut
+                    Text('Commandes par statut',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 200,
+                      child: _buildPieChart(
+                        charts['orders_by_status'] as List,
+                        'status',
+                        'count',
+                      ),
+                    ),
+                    const Divider(height: 24),
+                    
+                    // Top 5 organisations
+                    Text('Top 5 organisations par CA',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ...(charts['top_orgs_by_revenue'] as List).map((org) => ListTile(
+                          leading: CircleAvatar(
+                            child: Text('${(charts['top_orgs_by_revenue'] as List).indexOf(org) + 1}'),
+                          ),
+                          title: Text(org['name']),
+                          trailing: Text('${org['revenue']} DA',
+                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                          dense: true,
+                        )),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Widget _buildLineChart(List<dynamic> data, String label, Color color) {
+    if (data.isEmpty) {
+      return const Center(child: Text('Aucune donnée'));
+    }
+
+    // Préparer les données pour le graphique
+    final spots = <FlSpot>[];
+    for (int i = 0; i < data.length; i++) {
+      final item = data[i];
+      final value = item['count'] != null 
+          ? double.parse(item['count'].toString())
+          : double.parse(item['amount'].toString());
+      spots.add(FlSpot(i.toDouble(), value));
+    }
+
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(show: true),
+        titlesData: FlTitlesData(
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 40,
+              getTitlesWidget: (value, meta) {
+                return Text(
+                  value.toInt().toString(),
+                  style: const TextStyle(fontSize: 10),
+                );
+              },
+            ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              getTitlesWidget: (value, meta) {
+                if (value.toInt() >= 0 && value.toInt() < data.length) {
+                  final date = data[value.toInt()]['date'].toString();
+                  return Text(
+                    date.substring(8, 10), // Jour uniquement
+                    style: const TextStyle(fontSize: 10),
+                  );
+                }
+                return const Text('');
+              },
+            ),
+          ),
+          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        borderData: FlBorderData(show: true),
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            color: color,
+            barWidth: 3,
+            dotData: FlDotData(show: true),
+            belowBarData: BarAreaData(
+              show: true,
+              color: color.withOpacity(0.2),
+            ),
+          ),
+        ],
+        minY: 0,
+      ),
+    );
+  }
+
+  Widget _buildPieChart(List<dynamic> data, String labelKey, String valueKey) {
+    if (data.isEmpty) {
+      return const Center(child: Text('Aucune donnée'));
+    }
+
+    final colors = [
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.red,
+      Colors.teal,
+      Colors.pink,
+      Colors.amber,
+    ];
+
+    final sections = <PieChartSectionData>[];
+    final total = data.fold<double>(
+      0,
+      (sum, item) => sum + double.parse(item[valueKey].toString()),
+    );
+
+    for (int i = 0; i < data.length; i++) {
+      final item = data[i];
+      final value = double.parse(item[valueKey].toString());
+      final percentage = (value / total * 100).toStringAsFixed(1);
+      
+      sections.add(
+        PieChartSectionData(
+          value: value,
+          title: '$percentage%',
+          color: colors[i % colors.length],
+          radius: 80,
+          titleStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 150,
+          child: PieChart(
+            PieChartData(
+              sections: sections,
+              sectionsSpace: 2,
+              centerSpaceRadius: 40,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 16,
+          runSpacing: 8,
+          children: data.asMap().entries.map((entry) {
+            final index = entry.key;
+            final item = entry.value;
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 16,
+                  height: 16,
+                  color: colors[index % colors.length],
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${item[labelKey]}: ${item[valueKey]}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            );
+          }).toList(),
+        ),
+      ],
+    );
   }
 
   // ============================================
