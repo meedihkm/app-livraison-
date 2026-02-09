@@ -4121,6 +4121,60 @@ router.put("/settings/:id", authenticateSuperAdmin, async (req, res) => {
   }
 });
 
+// PUT /api/super-admin/settings/:category/:key
+// Mettre à jour un paramètre par category/key
+router.put(
+  "/settings/:category/:key",
+  authenticateSuperAdmin,
+  async (req, res) => {
+    try {
+      const { category, key } = req.params;
+      const { value, description } = req.body;
+
+      if (!value) {
+        return res.status(400).json({ error: "Valeur requise" });
+      }
+
+      const result = await pool.query(
+        `UPDATE system_settings 
+       SET value = $1, description = $2, updated_by = $3, updated_at = NOW()
+       WHERE category = $4 AND key = $5
+       RETURNING *`,
+        [value, description, req.user?.id, category, key],
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Paramètre non trouvé" });
+      }
+
+      await logAudit(
+        "SETTING_UPDATED",
+        req.user?.id,
+        null,
+        {
+          category,
+          key,
+          new_value: value,
+          description,
+        },
+        req,
+      );
+
+      res.json({
+        success: true,
+        message: "Paramètre mis à jour",
+        data: result.rows[0],
+      });
+    } catch (error) {
+      logger.error("Update setting by category/key error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  },
+);
+
 // POST /api/super-admin/maintenance/toggle
 // Activer/Désactiver le mode maintenance
 router.post("/maintenance/toggle", authenticateSuperAdmin, async (req, res) => {
