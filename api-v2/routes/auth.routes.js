@@ -1,22 +1,22 @@
-const express = require('express');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const express = require("express");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const router = express.Router();
 
-const pool = require('../config/database');
-const logger = require('../config/logger');
-const { jwtSecret, accessTokenExpiry } = require('../config/jwt');
-const { authenticate } = require('../middleware/auth');
-const { validate } = require('../middleware/validate');
-const { loginLimiter } = require('../middleware/rateLimit');
-const { logAudit } = require('../services/audit.service');
+const pool = require("../config/database");
+const logger = require("../config/logger");
+const { jwtSecret, accessTokenExpiry } = require("../config/jwt");
+const { authenticate } = require("../middleware/auth");
+const { validate } = require("../middleware/validate");
+const { loginLimiter } = require("../middleware/rateLimit");
+const { logAudit } = require("../services/audit.service");
 const {
   generateRefreshToken,
   saveRefreshToken,
   validateRefreshToken,
   revokeRefreshToken,
-  revokeAllUserTokens
-} = require('../services/token.service');
+  revokeAllUserTokens,
+} = require("../services/token.service");
 
 /**
  * @swagger
@@ -49,12 +49,12 @@ const {
  *         organization:
  *           type: object
  *           properties:
- *             id: 
+ *             id:
  *               type: string
  *               format: uuid
- *             name: 
+ *             name:
  *               type: string
- *             type: 
+ *             type:
  *               type: string
  *     AuthResponse:
  *       type: object
@@ -110,52 +110,77 @@ const {
  *         description: Compte ou organisation dÃ©sactivÃ©e
  */
 // POST /api/auth/login
-router.post('/login', loginLimiter, validate('login'), async (req, res) => {
+router.post("/login", loginLimiter, validate("login"), async (req, res) => {
   try {
     const { email, password } = req.body;
 
     const result = await pool.query(
       `SELECT u.*, o.name as org_name, o.type as org_type, o.active as org_active 
        FROM users u 
-       JOIN organizations o ON u.organization_id = o.id 
+       LEFT JOIN organizations o ON u.organization_id = o.id 
        WHERE LOWER(u.email) = LOWER($1)`,
-      [email.trim()]
+      [email.trim()],
     );
 
     if (result.rows.length === 0) {
-      await bcrypt.hash('dummy', 10); // Timing attack protection
-      await logAudit('LOGIN_FAILED', null, null, { email, reason: 'user_not_found' }, req);
-      return res.status(401).json({ error: 'Identifiants incorrects' });
+      await bcrypt.hash("dummy", 10); // Timing attack protection
+      await logAudit(
+        "LOGIN_FAILED",
+        null,
+        null,
+        { email, reason: "user_not_found" },
+        req,
+      );
+      return res.status(401).json({ error: "Identifiants incorrects" });
     }
 
     const user = result.rows[0];
 
-    if (!user.org_active) {
-      await logAudit('LOGIN_FAILED', user.id, user.organization_id, { reason: 'org_disabled' }, req);
-      return res.status(403).json({ error: 'Organisation dÃ©sactivÃ©e' });
+    // Super admin n'a pas d'organisation, skip la vérification
+    if (user.organization_id && !user.org_active) {
+      await logAudit(
+        "LOGIN_FAILED",
+        user.id,
+        user.organization_id,
+        { reason: "org_disabled" },
+        req,
+      );
+      return res.status(403).json({ error: "Organisation désactivée" });
     }
 
     if (!user.active) {
-      await logAudit('LOGIN_FAILED', user.id, user.organization_id, { reason: 'user_disabled' }, req);
-      return res.status(403).json({ error: 'Compte dÃ©sactivÃ©' });
+      await logAudit(
+        "LOGIN_FAILED",
+        user.id,
+        user.organization_id,
+        { reason: "user_disabled" },
+        req,
+      );
+      return res.status(403).json({ error: "Compte dÃ©sactivÃ©" });
     }
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
-      await logAudit('LOGIN_FAILED', user.id, user.organization_id, { reason: 'wrong_password' }, req);
-      return res.status(401).json({ error: 'Identifiants incorrects' });
+      await logAudit(
+        "LOGIN_FAILED",
+        user.id,
+        user.organization_id,
+        { reason: "wrong_password" },
+        req,
+      );
+      return res.status(401).json({ error: "Identifiants incorrects" });
     }
 
     const accessToken = jwt.sign(
       { id: user.id, organizationId: user.organization_id, role: user.role },
       jwtSecret,
-      { expiresIn: accessTokenExpiry }
+      { expiresIn: accessTokenExpiry },
     );
 
     const refreshToken = generateRefreshToken();
     await saveRefreshToken(user.id, refreshToken);
 
-    await logAudit('LOGIN_SUCCESS', user.id, user.organization_id, {}, req);
+    await logAudit("LOGIN_SUCCESS", user.id, user.organization_id, {}, req);
 
     res.json({
       success: true,
@@ -168,12 +193,16 @@ router.post('/login', loginLimiter, validate('login'), async (req, res) => {
         name: user.name,
         role: user.role,
         organizationId: user.organization_id,
-        organization: { id: user.organization_id, name: user.org_name || '', type: user.org_type || '' }
-      }
+        organization: {
+          id: user.organization_id,
+          name: user.org_name || "",
+          type: user.org_type || "",
+        },
+      },
     });
   } catch (error) {
-    logger.error('Login error:', { error: error.message, stack: error.stack });
-    res.status(500).json({ error: 'Erreur serveur' });
+    logger.error("Login error:", { error: error.message, stack: error.stack });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -216,42 +245,57 @@ router.post('/login', loginLimiter, validate('login'), async (req, res) => {
  *         description: Compte dÃ©sactivÃ©
  */
 // POST /api/auth/refresh
-router.post('/refresh', validate('refreshToken'), async (req, res) => {
+router.post("/refresh", validate("refreshToken"), async (req, res) => {
   try {
     const { refreshToken } = req.body;
 
     const tokenData = await validateRefreshToken(refreshToken);
     if (!tokenData) {
-      return res.status(401).json({ error: 'Refresh token invalide ou expirÃ©' });
+      return res
+        .status(401)
+        .json({ error: "Refresh token invalide ou expirÃ©" });
     }
 
     if (!tokenData.active) {
       await revokeRefreshToken(refreshToken);
-      return res.status(403).json({ error: 'Compte dÃ©sactivÃ©' });
+      return res.status(403).json({ error: "Compte dÃ©sactivÃ©" });
     }
 
     await revokeRefreshToken(refreshToken);
 
     const accessToken = jwt.sign(
-      { id: tokenData.user_id, organizationId: tokenData.organization_id, role: tokenData.role },
+      {
+        id: tokenData.user_id,
+        organizationId: tokenData.organization_id,
+        role: tokenData.role,
+      },
       jwtSecret,
-      { expiresIn: accessTokenExpiry }
+      { expiresIn: accessTokenExpiry },
     );
 
     const newRefreshToken = generateRefreshToken();
     await saveRefreshToken(tokenData.user_id, newRefreshToken);
 
-    await logAudit('TOKEN_REFRESH', tokenData.user_id, tokenData.organization_id, {}, req);
+    await logAudit(
+      "TOKEN_REFRESH",
+      tokenData.user_id,
+      tokenData.organization_id,
+      {},
+      req,
+    );
 
     res.json({
       success: true,
       accessToken,
       refreshToken: newRefreshToken,
-      expiresIn: 900
+      expiresIn: 900,
     });
   } catch (error) {
-    logger.error('Refresh error:', { error: error.message, stack: error.stack });
-    res.status(500).json({ error: 'Erreur serveur' });
+    logger.error("Refresh error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -286,29 +330,38 @@ router.post('/refresh', validate('refreshToken'), async (req, res) => {
  *         description: Non authentifiÃ©
  */
 // POST /api/auth/logout
-router.post('/logout', authenticate, async (req, res) => {
+router.post("/logout", authenticate, async (req, res) => {
   try {
     const { refreshToken } = req.body;
     if (refreshToken) {
       await revokeRefreshToken(refreshToken);
     }
-    await logAudit('LOGOUT', req.user.id, req.user.organization_id, {}, req);
+    await logAudit("LOGOUT", req.user.id, req.user.organization_id, {}, req);
     res.json({ success: true });
   } catch (error) {
-    logger.error('Logout error:', { error: error.message, stack: error.stack });
-    res.status(500).json({ error: 'Erreur serveur' });
+    logger.error("Logout error:", { error: error.message, stack: error.stack });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
 // POST /api/auth/logout-all
-router.post('/logout-all', authenticate, async (req, res) => {
+router.post("/logout-all", authenticate, async (req, res) => {
   try {
     await revokeAllUserTokens(req.user.id);
-    await logAudit('LOGOUT_ALL_DEVICES', req.user.id, req.user.organization_id, {}, req);
+    await logAudit(
+      "LOGOUT_ALL_DEVICES",
+      req.user.id,
+      req.user.organization_id,
+      {},
+      req,
+    );
     res.json({ success: true });
   } catch (error) {
-    logger.error('Logout all error:', { error: error.message, stack: error.stack });
-    res.status(500).json({ error: 'Erreur serveur' });
+    logger.error("Logout all error:", {
+      error: error.message,
+      stack: error.stack,
+    });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -336,14 +389,14 @@ router.post('/logout-all', authenticate, async (req, res) => {
  *         description: Non authentifiÃ©
  */
 // GET /api/auth/me
-router.get('/me', authenticate, async (req, res) => {
+router.get("/me", authenticate, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT u.*, o.name as org_name, o.type as org_type 
        FROM users u 
        JOIN organizations o ON u.organization_id = o.id 
        WHERE u.id = $1`,
-      [req.user.id]
+      [req.user.id],
     );
 
     const user = result.rows[0];
@@ -355,11 +408,15 @@ router.get('/me', authenticate, async (req, res) => {
         name: user.name,
         role: user.role,
         organizationId: user.organization_id,
-        organization: { id: user.organization_id, name: user.org_name || '', type: user.org_type || '' }
-      }
+        organization: {
+          id: user.organization_id,
+          name: user.org_name || "",
+          type: user.org_type || "",
+        },
+      },
     });
   } catch (error) {
-    res.status(500).json({ error: 'Erreur serveur' });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
