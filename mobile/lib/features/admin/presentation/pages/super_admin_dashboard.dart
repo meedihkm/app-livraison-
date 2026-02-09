@@ -3036,7 +3036,7 @@ class _SuperAdminDashboardState extends State<SuperAdminDashboard> with SingleTi
                 const Divider(height: 24),
                 
                 _buildMetricRow('Actions totales (5 min)', 
-                    metrics['activity']['total_actions'].toString(), Icons.activity),
+                    metrics['activity']['total_actions'].toString(), Icons.timeline),
                 _buildMetricRow('Organisations actives', 
                     metrics['activity']['active_orgs'].toString(), Icons.business),
                 _buildMetricRow('Utilisateurs actifs', 
