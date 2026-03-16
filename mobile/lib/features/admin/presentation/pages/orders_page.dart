@@ -27,6 +27,9 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
   // État de chargement pour éviter les double-clics
   Set<String> _processingOrders = {};
 
+  // Commandes récemment modifiées (protégées contre l'écrasement par _loadData)
+  Map<String, String> _recentlyUpdatedOrders = {}; // orderId -> newStatus
+
   @override
   void initState() {
     super.initState();
@@ -79,15 +82,24 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
           
           if (ordersResponse['success'] == true && ordersResponse['data'] != null) {
              _orders = (ordersResponse['data'] as List).map((e) => Order.fromJson(e as Map<String, dynamic>)).toList();
+
+             // Protéger les commandes récemment modifiées contre l'écrasement
+             if (_recentlyUpdatedOrders.isNotEmpty) {
+               for (int i = 0; i < _orders.length; i++) {
+                 final newStatus = _recentlyUpdatedOrders[_orders[i].id];
+                 if (newStatus != null && _orders[i].status != newStatus) {
+                   _orders[i] = Order.fromJson({
+                     ..._orders[i].toJson(),
+                     'status': newStatus,
+                   });
+                 }
+               }
+             }
           }
-          
+
           if (deliverersResponse['success'] == true && deliverersResponse['data'] != null) {
             _deliverers = (deliverersResponse['data'] as List).cast<Map<String, dynamic>>();
           }
-          
-          // _isLoading = false;
-          // _hasData = true;
-          if (mounted) setState(() {}); // Trigger rebuild
         });
       }
     } catch (e) {
@@ -499,6 +511,9 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
       await _apiService.lockOrder(order.id);
       
       if (mounted) {
+        // Protéger cette commande contre l'écrasement par _loadData
+        _recentlyUpdatedOrders[order.id] = 'locked';
+
         // Mise à jour optimiste de l'état local
         setState(() {
           final index = _orders.indexWhere((o) => o.id == order.id);
@@ -510,7 +525,7 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
           }
           _processingOrders.remove(order.id);
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -525,9 +540,14 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
             behavior: SnackBarBehavior.floating,
           ),
         );
-        
-        // Recharger en arrière-plan sans bloquer l'UI
-        _loadData(forceRefresh: true);
+
+        // Attendre que le backend propage le changement avant de recharger
+        Future.delayed(Duration(seconds: 2), () {
+          if (mounted) {
+            _recentlyUpdatedOrders.remove(order.id);
+            _loadData(forceRefresh: true);
+          }
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -603,6 +623,9 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
       await _apiService.assignDeliverer(order.id, selectedDeliverer['id'] as String);
       
       if (mounted) {
+        // Protéger cette commande contre l'écrasement par _loadData
+        _recentlyUpdatedOrders[order.id] = 'in_delivery';
+
         // Mise à jour optimiste de l'état local
         setState(() {
           final index = _orders.indexWhere((o) => o.id == order.id);
@@ -615,7 +638,7 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
           }
           _processingOrders.remove(order.id);
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -630,9 +653,14 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
             behavior: SnackBarBehavior.floating,
           ),
         );
-        
-        // Recharger en arrière-plan sans bloquer l'UI
-        _loadData(forceRefresh: true);
+
+        // Attendre que le backend propage le changement avant de recharger
+        Future.delayed(Duration(seconds: 2), () {
+          if (mounted) {
+            _recentlyUpdatedOrders.remove(order.id);
+            _loadData(forceRefresh: true);
+          }
+        });
       }
     } catch (e) {
       if (mounted) {
