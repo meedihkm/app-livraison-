@@ -417,8 +417,8 @@ class ApiService {
       _request('PUT', '${ApiConstants.baseUrl}/orders/$orderId/kitchen-status', body: {'status': status});
 
   // ===== AUDIT =====
-  Future<Map<String, dynamic>> getAuditLogs({int limit = 100, int offset = 0, String? action}) async {
-    var url = '${ApiConstants.auditLogs}?limit=$limit&offset=$offset';
+  Future<Map<String, dynamic>> getAuditLogs({int limit = 50, int page = 1, String? action}) async {
+    var url = '${ApiConstants.auditLogs}?limit=$limit&page=$page';
     if (action != null) url += '&action=$action';
     return _request('GET', url);
   }
@@ -428,7 +428,7 @@ class ApiService {
   /// Récupère la dette détaillée d'un client
   Future<Map<String, dynamic>> getCustomerDebt(String customerId) async {
     try {
-      final result = await _request('GET', '${ApiConstants.baseUrl}/financial/debts/$customerId');
+      final result = await _request('GET', '${ApiConstants.debts}/$customerId');
       return result['data'] is Map<String, dynamic> ? result['data'] as Map<String, dynamic> : {};
     } catch (e) {
       if (e is ApiException && e.statusCode == 404) return {};
@@ -446,18 +446,12 @@ class ApiService {
     String? dateFrom,
     String? dateTo,
   }) async {
-    var url = '${ApiConstants.baseUrl}/debts?page=$page&limit=$limit&min_debt=$minDebt';
-    if (customerId != null) url += '&customer_id=$customerId';
-    if (delivererId != null) url += '&deliverer_id=$delivererId';
-    if (dateFrom != null) url += '&date_from=$dateFrom';
-    if (dateTo != null) url += '&date_to=$dateTo';
+    var url = '${ApiConstants.debts}?page=$page&limit=$limit&minDebt=$minDebt';
+    if (customerId != null) url += '&customerId=$customerId';
+    if (delivererId != null) url += '&delivererId=$delivererId';
+    if (dateFrom != null) url += '&dateFrom=$dateFrom';
+    if (dateTo != null) url += '&dateTo=$dateTo';
     return _request('GET', url);
-  }
-
-  /// Récupère les statistiques globales des dettes
-  Future<Map<String, dynamic>> getDebtStats() async {
-    final result = await _request('GET', '${ApiConstants.baseUrl}/debts/stats');
-    return result['data'] is Map<String, dynamic> ? result['data'] as Map<String, dynamic> : {};
   }
 
   // ===== PAYMENTS (Refactorisé) =====
@@ -471,7 +465,7 @@ class ApiService {
     List<String>? targetOrders,
     String? notes,
   }) async {
-    final result = await _request('POST', '${ApiConstants.baseUrl}/payments', body: {
+    final result = await _request('POST', ApiConstants.financialPayments, body: {
       'customerId': customerId,
       'amount': amount,
       'mode': mode,
@@ -492,43 +486,22 @@ class ApiService {
     int page = 1,
     int limit = 50,
     String? customerId,
-    String? collectorId,
+    String? delivererId,
     String? dateFrom,
     String? dateTo,
   }) async {
-    var url = '${ApiConstants.baseUrl}/payments/history?page=$page&limit=$limit';
-    if (customerId != null) url += '&customer_id=$customerId';
-    if (collectorId != null) url += '&collector_id=$collectorId';
-    if (dateFrom != null) url += '&date_from=$dateFrom';
-    if (dateTo != null) url += '&date_to=$dateTo';
+    var url = '${ApiConstants.financialPayments}/history?page=$page&limit=$limit';
+    if (customerId != null) url += '&customerId=$customerId';
+    if (delivererId != null) url += '&delivererId=$delivererId';
+    if (dateFrom != null) url += '&dateFrom=$dateFrom';
+    if (dateTo != null) url += '&dateTo=$dateTo';
     return _request('GET', url);
   }
 
   /// Récupère les collections du livreur connecté
   Future<Map<String, dynamic>> getMyCollections() async {
-    final result = await _request('GET', '${ApiConstants.baseUrl}/payments/my-collections');
+    final result = await _request('GET', '${ApiConstants.financialPayments}/my-collections');
     return result['data'] is Map<String, dynamic> ? result['data'] as Map<String, dynamic> : {};
-  }
-
-  /// Récupère les statistiques des paiements
-  Future<Map<String, dynamic>> getPaymentStats() async {
-    final result = await _request('GET', '${ApiConstants.baseUrl}/payments/stats');
-    return result['data'] is Map<String, dynamic> ? result['data'] as Map<String, dynamic> : {};
-  }
-
-  // ===== DEBT (Ancienne méthode - Déprécié) =====
-  @Deprecated('Utiliser recordPayment() à la place')
-  Future<Map<String, dynamic>> recordDebtPayment(Map<String, dynamic> paymentData) async {
-    return recordPayment(
-      customerId: (paymentData['customerId'] ?? paymentData['clientId'])?.toString() ?? '',
-      amount: (paymentData['amount'] as num?)?.toDouble() ?? 0.0,
-      mode: paymentData['mode']?.toString() ?? 'cash',
-      deliveryId: paymentData['deliveryId']?.toString(),
-      targetOrders: paymentData['targetOrders'] is List<dynamic> 
-          ? (paymentData['targetOrders'] as List<dynamic>).whereType<String>().toList()
-          : null,
-      notes: paymentData['notes']?.toString(),
-    );
   }
 
   // ===== PACKAGING (Feature 3) =====

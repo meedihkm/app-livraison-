@@ -30,21 +30,16 @@ class ApiConstants {
   static const String deliverersLocations = '$baseUrl/deliveries/locations';
   
   // Financial endpoints
-  static const String dailyFinancial = '$baseUrl/financial/daily';
-  static const String debts = '$baseUrl/debt/debts';
-  static const String financialDebts = '$baseUrl/financial/debts'; // Alias pour compatibilité
-  
+  static const String dailyFinancial = '$baseUrl/organization/daily';
+  static const String debts = '$baseUrl/financial/debts';
+  static const String financialOverview = '$baseUrl/financial/overview';
+  static const String financialPayments = '$baseUrl/financial/payments';
+
   // Audit logs
   static const String auditLogs = '$baseUrl/audit-logs';
-  
-  // Debt endpoints (Feature 1)
-  static const String debtBase = '$baseUrl/debt';
-  
+
   // Favorites endpoints (Phase 2)
   static const String favorites = '$baseUrl/favorites';
-  
-  // Payments endpoints (Phase 1)
-  static const String payments = '$baseUrl/payments';
   
   // Notifications endpoints (Phase 3)
   static const String notifications = '$baseUrl/notifications';
